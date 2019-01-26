@@ -1,6 +1,23 @@
 #include <avr/io.h>
 
+#include "avrshell.h"
 #include "parser.h"
+#include "progmem.h"
+
+
+#define CMD_COUNT 8
+
+
+static const char c_in_[] PROGMEM = "in";
+static const char c_out_[] PROGMEM = "out";
+static const char c_dump_[] PROGMEM = "dump";
+static const char c_pdump_[] PROGMEM = "pdump";
+static const char c_sbi_[] PROGMEM = "sbi";
+static const char c_cbi_[] PROGMEM = "cbi";
+static const char c_lds_[] PROGMEM = "lds";
+static const char c_sts_[] PROGMEM = "sts";
+
+static const char * const cmd_[] __attribute__((__progmem__)) = {c_in_, c_out_, c_dump_, c_pdump_, c_sbi_, c_cbi_, c_lds_, c_sts_};
 
 
 char nibble_to_ascx(char a)
@@ -132,5 +149,26 @@ int8_t get_int_param(char **cmd, int *parm)
       *parm = asctoi(*cmd);
 
    return E_OK;
+}
+
+
+int8_t get_command(const char *cmd, uint8_t rlen)
+{
+	char **ps, *s;
+	uint8_t i, slen;
+
+	ps = (char**) &cmd_;
+	for (i = 0; i < CMD_COUNT; i++)
+	{
+		// get address from prg memory
+		s = pgm_ptr(ps);
+		ps++;
+
+		slen = pstrlen(s);
+		if ((rlen >= slen) && !pstrncmp(cmd, s, slen))
+         return i;
+   }
+
+   return -1;
 }
 

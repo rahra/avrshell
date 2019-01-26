@@ -40,7 +40,7 @@ OBJDUMP = avr-objdump
 CPP = avr-cpp
 COMPRESSOR = xz
 
-CFLAGS = -g -Wall -mmcu=$(MCU) -std=c99
+CFLAGS = -g -Wall -mmcu=$(MCU) -std=c99 -fno-jump-tables
 CPPLAGS = -g -mmcu=$(MCU)
 ASFLAGS = -g -mmcu=$(MCU)
 LDFLAGS = -Tdata=0x800100 -nostdlib

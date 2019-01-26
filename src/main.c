@@ -1,11 +1,8 @@
 #include "serial_io.h"
 #include "progmem.h"
 #include "parser.h"
+#include "avrshell.h"
 
-
-#ifndef PROGMEM
-#define PROGMEM __attribute__((__progmem__))
-#endif
 
 #define SYS_PWRITE(x) sys_pwrite(x, sizeof(x) - 1)
 #define PSTRNCMP(x, y) pstrncmp(x, y, sizeof(y) - 1)
@@ -21,16 +18,6 @@ const char m_unk_err_[] PROGMEM = "*** error unknown";
 const char m_miss_arg_[] PROGMEM = "*** missing arg";
 const char m_null_[] PROGMEM = "** NULL pointer";
 const char m_int_[] PROGMEM = "__INTERRUPT__ 0x";
-
-#define CMD_COUNT 6
-const char c_in_[] __attribute__((__progmem__)) = "in";
-const char c_out_[] __attribute__((__progmem__)) = "out";
-const char c_dump_[] __attribute__((__progmem__)) = "dump";
-const char c_pdump_[] __attribute__((__progmem__)) = "pdump";
-const char c_sbi_[] PROGMEM = "sbi";
-const char c_cbi_[] PROGMEM = "cbi";
-
-const char * const cmd_[] __attribute__((__progmem__)) = {c_in_, c_out_, c_dump_, c_pdump_, c_sbi_, c_cbi_};
 
 
 void println(void)
@@ -159,12 +146,11 @@ int8_t get_int_param0(char **cmd, int *parm)
 
 int main(void)
 {
-   unsigned char rlen, slen;
+   unsigned char rlen;
    char buf[256], *cmd;
-   char *s, **ps;
-   int8_t i, exec;
-   int addr;
+   int addr, off;
    int val;
+   int8_t cmdnr;
 
    init_serial();
    println();
@@ -183,96 +169,87 @@ int main(void)
       if (*cmd == '#' || is_eos(*cmd))
          continue;
 
-      ps = (char**) &cmd_;
-      for (i = 0, exec = 0; i < CMD_COUNT && !exec; i++)
+      cmdnr = get_command(cmd, rlen);
+      off = 0;
+
+      switch (cmdnr)
       {
-         // get address from prg memory
-         s = pgm_ptr(ps);
-         ps++;
+         // lds
+         // in
+         case C_IN:
+            off = 0x20;
 
-         slen = pstrlen(s);
-         if ((rlen >= slen) && !pstrncmp(cmd, s, slen))
-         {
-            switch (i)
-            {
-               // in
-               case 0:
-                  exec++;
-                  
-                  if (get_int_param0(&cmd, &addr))
-                     break;
- 
-                  val = *((char*)(addr + 0x20));
+         case C_LDS:
+            if (get_int_param0(&cmd, &addr))
+               break;
 
-                  sys_send('0');
-                  sys_send('x');
-                  write_hexbyte(val);
-                  println();
+            addr += off;
 
-                  break;
+            val = *((char*)(addr));
 
-               // out
-               case 1:
-                  exec++;
-                  
-                  if (get_int_param0(&cmd, &addr))
-                     break;
-                  if (get_int_param0(&cmd, &val))
-                     break;
+            sys_send('0');
+            sys_send('x');
+            write_hexbyte(val);
+            println();
 
-                  *((char*)(addr + 0x20)) = val;
+            break;
 
-                  break;
+         // out
+         case C_OUT:
+            off = 0x20;
 
-               //dump
-               case 2:
-               //pdump
-               case 3:
-                  exec++;
+         case C_STS:
+            if (get_int_param0(&cmd, &addr))
+               break;
+            if (get_int_param0(&cmd, &val))
+               break;
 
-                  if (get_int_param0(&cmd, &addr))
-                     break;
- 
-                  mem_dump((void*) addr, 512, i == 2 ? MEM_RAM : MEM_PRG);
+            *((char*)(addr + off)) = val;
 
-                  break;
+            break;
 
-               //sbi
-               case 4:
-                  exec++;
-                  
-                  if (get_int_param0(&cmd, &addr))
-                     break;
-                  if (get_int_param0(&cmd, &val))
-                     break;
+         //pdump
+         case C_PDUMP:
+            off = MEM_PRG;
 
-                  addr += 0x20;
-                  sbi((char*) addr, val);
+         //dump
+         case C_DUMP:
+            if (get_int_param0(&cmd, &addr))
+               break;
 
-                  break;
+            mem_dump((void*) addr, 512, off);
 
-               //cbi
-               case 5:
-                  exec++;
-                  if (get_int_param0(&cmd, &addr))
-                     break;
-                  if (get_int_param0(&cmd, &val))
-                     break;
+            break;
 
-                  addr += 0x20;
-                  cbi((char*) addr, val);
+         //sbi
+         case C_SBI:
+            if (get_int_param0(&cmd, &addr))
+               break;
+            if (get_int_param0(&cmd, &val))
+               break;
 
-                  break;
-            }
-         }
-      }
+            addr += 0x20;
+            sbi((char*) addr, val);
 
-      // unknown command
-      if (!exec)
-      {
-         SYS_PWRITE(m_unk_);
-         println();
-      }
+            break;
+
+         //cbi
+         case C_CBI:
+            if (get_int_param0(&cmd, &addr))
+               break;
+            if (get_int_param0(&cmd, &val))
+               break;
+
+            addr += 0x20;
+            cbi((char*) addr, val);
+
+            break;
+         
+         // unknown command
+         default:
+            SYS_PWRITE(m_unk_);
+            println();
+      } /* switch (cmdnr) */
    }
 
    // obligatory

@@ -55,8 +55,6 @@ serial_rx_handler:
    push  r25
    push  r28
    push  r29
-   push  r30
-   push  r31
 
    lds   r16,UDR0       ; read data from input register
    cpi   r16,8          ; backspace?
@@ -80,8 +78,6 @@ serial_rx_handler:
    sts   kbuf_input_pos,r17   ; write counter back to RAM
 
 .Lrx_int_exit:
-   pop   r31
-   pop   r30
    pop   r29
    pop   r28
    pop   r25
@@ -111,7 +107,6 @@ serial_rx_handler:
    
 
 ; send a single byte to serial buffer
-; modify: r22,r25,r30,r31
 ; @param r24 byte to send
 .global  sys_send
 sys_send:
@@ -316,7 +311,7 @@ sys_write:
 .global sys_pwrite
 ; write string to serial port output buffer
 ; @param r25:r24 src Source PROGMEM address in Y (modified)
-; @param r22 cnt Number of bytes (modified)
+; @param r22 cnt Number of bytes
 sys_pwrite:
    tst   r22                     ; safety check r22 != 0
    brne  .Lpwrite
@@ -324,6 +319,7 @@ sys_pwrite:
 
 .Lpwrite:
    push  r17
+   push  r24
    push  ZL
    push  ZH
    movw  ZL,r24        ; move argument to Z
@@ -331,16 +327,13 @@ sys_pwrite:
    mov   r17,r22        ; copy one byte after the other to r22
 .Lpwloop:
    lpm   r24,Z+
-;   push  ZL
-;   push  ZH
    rcall sys_send       ; and call sys_send()
-;   pop   ZH
-;   pop   ZL
    dec   r17
    brne  .Lpwloop
    
    pop   ZH
    pop   ZL
+   pop   r24
    pop   r17
    ret
 

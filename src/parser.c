@@ -5,9 +5,6 @@
 #include "progmem.h"
 
 
-#define CMD_COUNT 8
-
-
 static const char c_in_[] PROGMEM = "in";
 static const char c_out_[] PROGMEM = "out";
 static const char c_dump_[] PROGMEM = "dump";
@@ -16,8 +13,10 @@ static const char c_sbi_[] PROGMEM = "sbi";
 static const char c_cbi_[] PROGMEM = "cbi";
 static const char c_lds_[] PROGMEM = "lds";
 static const char c_sts_[] PROGMEM = "sts";
+static const char c_help_[] PROGMEM = "help";
 
-static const char * const cmd_[] __attribute__((__progmem__)) = {c_in_, c_out_, c_dump_, c_pdump_, c_sbi_, c_cbi_, c_lds_, c_sts_};
+static const char * const cmd_[] __attribute__((__progmem__)) = {c_in_, c_out_,
+   c_dump_, c_pdump_, c_sbi_, c_cbi_, c_lds_, c_sts_, c_help_};
 
 
 char nibble_to_ascx(char a)
@@ -158,7 +157,7 @@ int8_t get_command(const char *cmd, uint8_t rlen)
 	uint8_t i, slen;
 
 	ps = (char**) &cmd_;
-	for (i = 0; i < CMD_COUNT; i++)
+	for (i = 0; i < sizeof(cmd_)/sizeof(*cmd_); i++)
 	{
 		// get address from prg memory
 		s = pgm_ptr(ps);

@@ -10,14 +10,25 @@
 #define MEM_RAM 0
 #define MEM_PRG 1
 
-const char m_helo_[] PROGMEM = "AVR shell v0.2 (c) 2019 Bernhard Fischer, <bf@abenteuerland.at>";
-const char m_prompt_[] __attribute__((__progmem__)) = "Arduino# ";
-const char m_ok_[] __attribute__((__progmem__)) = "OK";
-const char m_unk_[] PROGMEM = "*** unknown command";
-const char m_unk_err_[] PROGMEM = "*** error unknown";
-const char m_miss_arg_[] PROGMEM = "*** missing arg";
-const char m_null_[] PROGMEM = "** NULL pointer";
-const char m_int_[] PROGMEM = "__INTERRUPT__ 0x";
+static const char m_helo_[] PROGMEM = "AVR shell v0.2 (c) 2019 Bernhard Fischer, <bf@abenteuerland.at>";
+static const char m_prompt_[] __attribute__((__progmem__)) = "Arduino# ";
+static const char m_ok_[] __attribute__((__progmem__)) = "OK";
+static const char m_unk_[] PROGMEM = "*** unknown command";
+static const char m_unk_err_[] PROGMEM = "*** error unknown";
+static const char m_miss_arg_[] PROGMEM = "*** missing arg";
+static const char m_null_[] PROGMEM = "** NULL pointer";
+static const char m_int_[] PROGMEM = "__INTERRUPT__ 0x";
+
+static const char m_help0_[] PROGMEM =
+   "in <io_reg> ............... read IO register\n"
+   "out <io_reg> <byte> ....... write value to IO register\n"
+   "cbi <io_reg> <bit> ........ clear bit (0-7) in IO register\n"
+   "sbi <io_reg> <bit> ........ set bit (0-7) in IO register\n";
+static const char m_help1_[] PROGMEM =
+   "lds <memaddr> ............. read byte from memory\n"
+   "sts <memaddr> <byte> ...... write byte to memory\n"
+   "dump <memaddr> [<len>] .... dump <len> bytes of RAM memory\n"
+   "pdump <memaddr> [<len>} ... dump <len> bytes of program memory\n";
 
 
 void println(void)
@@ -144,6 +155,13 @@ int8_t get_int_param0(char **cmd, int *parm)
 }
 
 
+void help(void)
+{
+   SYS_PWRITE(m_help0_);
+   SYS_PWRITE(m_help1_);
+}
+
+
 int main(void)
 {
    unsigned char rlen;
@@ -217,7 +235,9 @@ int main(void)
             if (get_int_param0(&cmd, &addr))
                break;
 
-            mem_dump((void*) addr, 512, off);
+            val = 512;
+            get_int_param(&cmd, &val);
+            mem_dump((void*) addr, val, off);
 
             break;
 
@@ -245,6 +265,10 @@ int main(void)
 
             break;
          
+         case C_HELP:
+            help();
+            break;
+
          // unknown command
          default:
             SYS_PWRITE(m_unk_);

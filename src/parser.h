@@ -17,7 +17,7 @@ char *next_token(char *s);
 int8_t get_int_param(char **cmd, int *parm);
 int8_t get_command(const char *cmd, uint8_t rlen);
 
-enum {C_IN, C_OUT, C_DUMP, C_PDUMP, C_SBI, C_CBI, C_LDS, C_STS};
+enum {C_IN, C_OUT, C_DUMP, C_PDUMP, C_SBI, C_CBI, C_LDS, C_STS, C_HELP};
 
 #endif
 

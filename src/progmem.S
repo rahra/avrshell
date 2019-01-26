@@ -83,3 +83,13 @@ pgm_byte:
    lpm   r24,Z
    ret
 
+.global read_eeprom
+read_eeprom:
+   sbic  _SFR_IO_ADDR(EECR),EEPE
+   rjmp  read_eeprom
+   out   _SFR_IO_ADDR(EEARH),r25
+   out   _SFR_IO_ADDR(EEARL),r24
+   sbi   _SFR_IO_ADDR(EECR),EERE
+   in    r24,_SFR_IO_ADDR(EEDR)
+   ret
+

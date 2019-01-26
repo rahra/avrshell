@@ -14,9 +14,10 @@ static const char c_cbi_[] PROGMEM = "cbi";
 static const char c_lds_[] PROGMEM = "lds";
 static const char c_sts_[] PROGMEM = "sts";
 static const char c_help_[] PROGMEM = "help";
+static const char c_edump_[] PROGMEM = "edump";
 
 static const char * const cmd_[] __attribute__((__progmem__)) = {c_in_, c_out_,
-   c_dump_, c_pdump_, c_sbi_, c_cbi_, c_lds_, c_sts_, c_help_};
+   c_dump_, c_pdump_, c_sbi_, c_cbi_, c_lds_, c_sts_, c_help_, c_edump_};
 
 
 char nibble_to_ascx(char a)

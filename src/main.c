@@ -9,6 +9,7 @@
 
 #define MEM_RAM 0
 #define MEM_PRG 1
+#define MEM_EEP 3
 
 static const char m_helo_[] PROGMEM = "AVR shell v0.2 (c) 2019 Bernhard Fischer, <bf@abenteuerland.at>";
 static const char m_prompt_[] __attribute__((__progmem__)) = "Arduino# ";
@@ -62,8 +63,14 @@ void write_ptr(const void *ptr)
 
 int8_t get_mem_byte(const void *addr, int8_t type)
 {
-   if (type == MEM_PRG)
-      return pgm_byte(addr);
+   switch (type)
+   {
+      case MEM_EEP:
+         return read_eeprom(addr);
+
+      case MEM_PRG:
+         return pgm_byte(addr);
+   }
 
    return *((char*) addr);
 }
@@ -251,9 +258,13 @@ int main(void)
 
             break;
 
+         //edump
+         case C_EDUMP:
+            off |= MEM_EEP;
+
          //pdump
          case C_PDUMP:
-            off = MEM_PRG;
+            off |= MEM_PRG;
 
          //dump
          case C_DUMP:

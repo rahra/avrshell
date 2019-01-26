@@ -2,7 +2,7 @@
 #define PROGMEM_H
 
 
-#include <avr/io.h>
+#include <stdint.h>
 
 
 int pstrncmp(const char *ram, const char *pmem, int);
@@ -12,6 +12,7 @@ int pgm_word(const void*);
 void *pgm_ptr(const void*);
 int8_t pgm_byte(const void*);
 
+int8_t read_eeprom(const void*);
 
 #endif
 

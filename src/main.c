@@ -30,6 +30,9 @@ static const char m_help1_[] PROGMEM =
    "sts <memaddr> <byte> ...... write byte to memory\n"
    "dump <memaddr> [<len>] .... dump <len> bytes of RAM memory\n"
    "pdump <memaddr> [<len>} ... dump <len> bytes of program memory\n";
+static const char m_help2_[] PROGMEM =
+   "edump <memaddr> [<len>} ... dump <len> bytes of EEPROM memory\n"
+   "ste <memaddr> <byte> ...... write byte to EEPROM memory\n";
 
 
 void println(void)
@@ -189,8 +192,11 @@ int8_t get_int_param0(char **cmd, int *parm)
 
 void help(void)
 {
+   SYS_PWRITE(m_helo_);
+   println();
    SYS_PWRITE(m_help0_);
    SYS_PWRITE(m_help1_);
+   SYS_PWRITE(m_help2_);
 }
 
 
@@ -298,6 +304,17 @@ int main(void)
 
             addr += 0x20;
             cbi((char*) addr, val);
+
+            break;
+
+         //ste
+         case C_STE:
+            if (get_int_param0(&cmd, &addr))
+               break;
+            if (get_int_param0(&cmd, &val))
+               break;
+
+            write_eeprom((char*) addr, val);
 
             break;
          

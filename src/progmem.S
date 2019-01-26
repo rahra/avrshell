@@ -93,3 +93,16 @@ read_eeprom:
    in    r24,_SFR_IO_ADDR(EEDR)
    ret
 
+.global write_eeprom
+write_eeprom:
+   sbic  _SFR_IO_ADDR(EECR),EEPE
+   rjmp  write_eeprom
+   out   _SFR_IO_ADDR(EEARH),r25
+   out   _SFR_IO_ADDR(EEARL),r24
+   out   _SFR_IO_ADDR(EEDR),r22
+   cli
+   sbi   _SFR_IO_ADDR(EECR),EEMPE
+   sei
+   sbi   _SFR_IO_ADDR(EECR),EEPE
+   ret
+

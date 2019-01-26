@@ -13,6 +13,7 @@ void *pgm_ptr(const void*);
 int8_t pgm_byte(const void*);
 
 int8_t read_eeprom(const void*);
+void write_eeprom(const void*, int8_t);
 
 #endif
 

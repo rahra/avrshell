@@ -73,14 +73,18 @@ void mem_dump(const void *addr, int len, int8_t type)
 {
    int8_t b, c;
    int i;
+   char buf[16];
 
    for (i = 0, b = 0; i < len; i++, b++, addr++)
    {
+      // after 16 bytes start new line
       if (b == 0x10)
       {
+         sys_write(buf, 16);
          println();
          b = 0;
       }
+      // print address at the beginning of a new line
       if (!b)
       {
          write_hexbyte(((int) addr) >> 8);
@@ -88,13 +92,34 @@ void mem_dump(const void *addr, int len, int8_t type)
          sys_send(':');
          //sys_send(' ');
       }
+      // extra space after 8 bytes
       if (!(b & 0x07))
          sys_send(' ');
 
       c = get_mem_byte(addr, type);
       write_hexbyte(c);
       sys_send(' ');
+
+      if (c >= 0x20 && c < 0x7f)
+         buf[b] = c;
+      else
+         buf[b] = '.';
    }
+
+   // last line, fill with spaces
+   for (i = b; i < 16; i++)
+   {
+      // extra space after 8 bytes
+      if (!(i & 0x07))
+         sys_send(' ');
+
+      sys_send(' ');
+      sys_send(' ');
+      sys_send(' ');
+   }
+
+   // final character output
+   sys_write(buf, b);
    println();
 }
 

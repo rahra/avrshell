@@ -20,6 +20,13 @@ static const char m_miss_arg_[] PROGMEM = "*** missing arg";
 static const char m_null_[] PROGMEM = "** NULL pointer";
 static const char m_int_[] PROGMEM = "__INTERRUPT__ 0x";
 
+static const char s_devsig_[] PROGMEM = "device signature = ";
+static const char s_oscal_[] PROGMEM = "oscillator calibration = 0x";
+static const char s_blb_[] PROGMEM = "boot load lock = 0x";
+static const char s_fl_[] PROGMEM = "fuse low = 0x";
+static const char s_fh_[] PROGMEM = "fuse high = 0x";
+static const char s_ef_[] PROGMEM = "extended fuse = 0x";
+
 static const char m_help0_[] PROGMEM =
    "in <io_reg> ............... read IO register\n"
    "out <io_reg> <byte> ....... write value to IO register\n"
@@ -32,12 +39,26 @@ static const char m_help1_[] PROGMEM =
    "pdump <memaddr> [<len>} ... dump <len> bytes of program memory\n";
 static const char m_help2_[] PROGMEM =
    "edump <memaddr> [<len>} ... dump <len> bytes of EEPROM memory\n"
-   "ste <memaddr> <byte> ...... write byte to EEPROM memory\n";
+   "ste <memaddr> <byte> ...... write byte to EEPROM memory\n"
+   "cpu ....................... CPU info\n";
 
 
 void println(void)
 {
    sys_send('\n');
+}
+
+
+void write_binbyte(int8_t n)
+{
+   int8_t i, b;
+
+   for (i = 0; i < 8; i++)
+   {
+      b = ((n & 0x80) != 0) + '0';
+      n <<= 1;
+      sys_send(b);
+   }
 }
 
 
@@ -200,13 +221,27 @@ void help(void)
 }
 
 
+void print_fuse(int addr, const char *str)
+{
+   int8_t byte;
+   char s[] = ", ";
+
+   sys_pwrite(str, pstrlen(str));
+   byte = read_fuse(addr);
+   write_hexbyte(byte);
+   sys_write(s, 2);
+   write_binbyte(byte);
+   println();
+}
+
+
 int main(void)
 {
    unsigned char rlen;
    char buf[256], *cmd;
    int addr, off;
    int val;
-   int8_t cmdnr;
+   int8_t cmdnr, byte;
 
    init_serial();
    println();
@@ -318,6 +353,29 @@ int main(void)
 
             break;
          
+         case C_CPU:
+            SYS_PWRITE(s_devsig_);
+            byte = read_sig(0);
+            write_hexbyte(byte);
+            sys_send(' ');
+            byte = read_sig(2);
+            write_hexbyte(byte);
+            sys_send(' ');
+            byte = read_sig(4);
+            write_hexbyte(byte);
+            println();
+
+            SYS_PWRITE(s_oscal_);
+            byte = read_sig(1);
+            write_hexbyte(byte);
+            println();
+
+            print_fuse(1, s_blb_);
+            print_fuse(0, s_fl_);
+            print_fuse(3, s_fh_);
+            print_fuse(2, s_ef_);
+            break;
+
          case C_HELP:
             help();
             break;

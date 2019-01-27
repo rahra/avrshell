@@ -106,3 +106,35 @@ write_eeprom:
    sbi   _SFR_IO_ADDR(EECR),EEPE
    ret
 
+; Read special bits (fuse, lock, signature) from controller flash
+; @param r25:r24 address of byte to read
+.global read_fuse
+read_fuse:
+   push  r22
+   ldi   r22,_BV(SPMEN)|_BV(BLBSET)
+   rcall .Lread_special
+   pop   r22
+   ret
+
+.global read_sig
+read_sig:
+   push  r22
+   ldi   r22,_BV(SPMEN)|_BV(SIGRD)
+   rcall .Lread_special
+   pop   r22
+   ret
+
+.Lread_special:
+   push  ZL
+   push  ZH
+
+   movw  ZL,r24
+   cli
+   out   _SFR_IO_ADDR(SPMCSR),r22
+   sei
+   lpm   r24,Z
+
+   pop   ZH
+   pop   ZL
+   ret
+

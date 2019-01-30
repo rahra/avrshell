@@ -1,4 +1,5 @@
 #include "serial_io.h"
+#include "timer.h"
 #include "progmem.h"
 #include "parser.h"
 #include "avrshell.h"
@@ -40,7 +41,8 @@ static const char m_help1_[] PROGMEM =
 static const char m_help2_[] PROGMEM =
    "edump <memaddr> [<len>} ... dump <len> bytes of EEPROM memory\n"
    "ste <memaddr> <byte> ...... write byte to EEPROM memory\n"
-   "cpu ....................... CPU info\n";
+   "cpu ....................... CPU info\n"
+   "uptime .................... show system uptime ticks.\n";
 
 
 void println(void)
@@ -374,6 +376,12 @@ int main(void)
             print_fuse(0, s_fl_);
             print_fuse(3, s_fh_);
             print_fuse(2, s_ef_);
+            break;
+
+         case C_UPTIME:
+            lint_to_str(get_uptime(), buf, sizeof(buf));
+            sys_write(buf, strlen(buf));
+            println();
             break;
 
          case C_HELP:

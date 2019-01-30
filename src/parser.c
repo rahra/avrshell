@@ -17,10 +17,24 @@ static const char c_help_[] PROGMEM = "help";
 static const char c_edump_[] PROGMEM = "edump";
 static const char c_ste_[] PROGMEM = "ste";
 static const char c_cpu_[] PROGMEM = "cpu";
+static const char c_uptime_[] PROGMEM = "uptime";
 
 static const char * const cmd_[] __attribute__((__progmem__)) = {c_in_, c_out_,
    c_dump_, c_pdump_, c_sbi_, c_cbi_, c_lds_, c_sts_, c_help_, c_edump_,
-   c_ste_, c_cpu_};
+   c_ste_, c_cpu_, c_uptime_};
+
+
+int strlen(const char *s)
+{
+   int n;
+
+   if (s == NULL)
+      return 0;
+
+   for (n = 0; *s; n++, s++);
+
+   return n;
+}
 
 
 char nibble_to_ascx(char a)
@@ -126,6 +140,47 @@ int asctoi(const char *s)
       n = -n;
 
    return n;
+}
+
+
+int8_t lint_to_str(long int n, char *buf, int len)
+{
+   long int base;
+   int8_t ret = E_TRUNC;
+   char c;
+
+   if (len <= 0 || buf == NULL)
+      return E_NULL;
+
+   if (len <= 1)
+      goto lint_to_str_return;
+
+   if (n < 0)
+   {
+      n = -n;
+      *buf++ = '-';
+      len--;
+      if (len <= 1)
+         goto lint_to_str_return;
+   }
+
+   for (base = 1000000000; base > n; base /= 10);
+
+   for (; base; base /= 10)
+   {
+      c = n / base;
+      n %= base;
+      *buf++ = c + '0';
+      len--;
+      if (len <= 1)
+         goto lint_to_str_return;
+   }
+
+   ret = E_OK;
+
+lint_to_str_return:
+   *buf = '\0';
+   return ret;
 }
 
 

@@ -45,8 +45,12 @@
    rjmp  default_handler
    rcall .
    rjmp  default_handler
-   rcall .
-   rjmp  default_handler
+
+; timer 0 overflow
+.org 0x40
+   rjmp  t0_handler
+
+.org 0x44
    rcall .
    rjmp  default_handler
 
@@ -81,6 +85,9 @@
    out   _SFR_IO_ADDR(SPL),r16
    ldi   r16,hi8(RAMEND)
    out   _SFR_IO_ADDR(SPH),r16
+
+   rcall init_procs              ; init thread structures
+   rcall init_timer              ; init time slice timer
 
    ldi   r16,lo8(main)           ; start first process (main)
    ldi   r17,hi8(main)

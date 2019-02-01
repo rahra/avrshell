@@ -12,6 +12,7 @@
 
 ; reset vector
 .org 0
+   cli
    rjmp  __ctors_start
 
 .org 0x04
@@ -88,6 +89,10 @@
 
    rcall init_procs              ; init thread structures
    rcall init_timer              ; init time slice timer
+
+   ldi   r16,0x00                ; put address 0x0000 (reset vector) on stack
+   push  r16
+   push  r16
 
    ldi   r16,lo8(main)           ; start first process (main)
    ldi   r17,hi8(main)

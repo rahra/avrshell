@@ -114,7 +114,7 @@ get_next_proc:
 
 
 ; Start a new process
-; @param r25:r24 Start address of new process
+; @param r25:r24 Start address of new process (word address)
 .global start_proc
 start_proc:
    push  r16
@@ -134,11 +134,19 @@ start_proc:
    mov   r22,r16
    rcall stack_address
 
+   ldi   ZL,lo8(exit_proc)    ; get address of process exit handler
+   ldi   ZH,hi8(exit_proc)
+   lsr   ZH
+   ror   ZL
+
+   st    Y,ZL     ; and put it on new process's stack 1st
+   st    -Y,ZH
+
 ; The C compiler already passes a code address
 ;   lsr   XH    ; divide process entry address by 2
 ;   ror   XL    ; (because AVR prog addresses are word not byte addresses)
 
-   st    Y,r24  ; save entry point to the stack of the new process
+   st    -Y,r24   ; save entry point to the stack of the new process
    st    -Y,r25
 
    sbiw  YL,32 ; subtract 32 from Y (stack) which is the register space
@@ -172,7 +180,6 @@ start_proc:
    ret
 
 
-
 ; Calculate address of stack in memory
 ; @param r16 Number of process (PID)
 ; @return Y address of stack
@@ -187,7 +194,19 @@ stack_address:
    sbc   YH,r1
 
    ret
-  
+
+
+; Process exit handler removes process from process list.
+exit_proc:
+   lds   r16,current_proc
+   rcall proc_list_address       ; get proc_list address of current process
+
+   ldi   r16,PSTATE_UNUSED       ; set process state to UNUSED
+   std   Z+PSTRUCT_STATE_OFF,r16
+
+   cli                           ; clear interrupts and immediately force context switch
+   rjmp  t0_handler
+
 
 .global sys_sleep
 sys_sleep:

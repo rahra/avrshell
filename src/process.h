@@ -7,7 +7,7 @@
 // number of bytes used per process in the process list
 #define PROC_LIST_ENTRY 3
 // process stack size
-#define STACK_SIZE 64
+#define STACK_SIZE 128
 // process states
 #define PSTATE_UNUSED 0
 #define PSTATE_RUN 1

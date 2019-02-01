@@ -8,12 +8,7 @@
 
 #include <avr/io.h>
 
-; maximum number of processes
-#define MAX_PROCS 5
-; number of bytes used per process in the process list
-#define PROC_LIST_ENTRY 2
-; process stack size
-#define STACK_SIZE 64
+#include "process.h"
 
 .section .text
 
@@ -22,8 +17,19 @@
 init_procs:
    clr   r16               ; Set the current PID to 0.
    sts   current_proc,r16
-   ldi   r16,1             ; Set the number of processes to 1.
-   sts   num_proc,r16
+
+   ldi   YL,lo8(proc_list)       ; zero process list
+   ldi   YH,hi8(proc_list)
+   ldi   r17,MAX_PROCS * PROC_LIST_ENTRY
+.Liploop:
+   st    Y+,r16
+   dec   r17
+   brne  .Liploop
+
+   ldi   r16,PSTATE_RUN          ; set state of initial process to RUN
+   ldi   YL,lo8(proc_list)
+   ldi   YH,hi8(proc_list)
+   std   Y+PSTRUCT_STATE_OFF,r16
    ret
 
 
@@ -41,6 +47,7 @@ context_switch:
    st    Z,YH
 
    ; determine next process to schedule
+   ldi   r22,PSTATE_RUN
    rcall get_next_proc
    sts   current_proc,r16
 
@@ -75,50 +82,64 @@ proc_list_address:
    ret
 
 
-; get number of next process
+; get number of next process with specific state
 ; This actually is the (most simple round robin) scheduler ;)
 ; @param r16 current process
+; @param r22 process state to look for
 ; @return r16 number of next process
 get_next_proc:
+   push  r17
+   push  ZL
+   push  ZH
+
+.Lgnpinc:
    ; increase current PID
    inc   r16
-   push  r17
    ; and start at the first process if the last one is reached
-   lds   r17,num_proc
-   cp    r16,r17
-   brne  .Lgnpexit
+   cpi   r16,MAX_PROCS
+   brne  .Lgnpstate
    clr   r16
+.Lgnpstate:
+   rcall proc_list_address
+   ldd   r17,Z+PSTRUCT_STATE_OFF ; get process state
+   cp    r17,r22
+   breq  .Lgnpexit
+   rjmp  .Lgnpinc
+
 .Lgnpexit:
+   pop   ZH
+   pop   ZL
    pop   r17
    ret
 
 
 ; Start a new process
-; @param Y Start address of new process
+; @param r25:r24 Start address of new process
 .global start_proc
 start_proc:
    push  r16
-   push  XL
-   push  XH
+   push  r22
    push  YL
    push  YH
    push  ZL
    push  ZH
 
-   movw  r26,r28
-
    ; disable all interrupts
    cli
 
    ; get new PID and calculate stack (top) address
-   lds   r16,num_proc
+   clr   r16
+   ldi   r22,PSTATE_UNUSED
+   rcall get_next_proc
+   mov   r22,r16
    rcall stack_address
 
-   lsr   XH    ; divide process entry address by 2
-   ror   XL    ; (because AVR prog addresses are word not byte addresses)
+; The C compiler already passes a code address
+;   lsr   XH    ; divide process entry address by 2
+;   ror   XL    ; (because AVR prog addresses are word not byte addresses)
 
-   st    Y,XL  ; save entry point to the stack of the new process
-   st    -Y,XH
+   st    Y,r24  ; save entry point to the stack of the new process
+   st    -Y,r25
 
    sbiw  YL,32 ; subtract 32 from Y (stack) which is the register space
                ; of the context switcher
@@ -129,15 +150,14 @@ start_proc:
    sbiw  YL,1
 
    ; store final stack address to the process list
-   lds   r16,num_proc
+   mov   r16,r22
    rcall proc_list_address
 
    st    Z+,YL   ; store new stack pointer to proc_list
-   st    Z,YH
+   st    Z+,YH
 
-   ; increase total number of processes
-   inc   r16
-   sts   num_proc,r16
+   ldi   r16,PSTATE_RUN    ; set process state to RUN
+   st    Z,r16
 
    ; enable interrupts again
    sei
@@ -146,8 +166,7 @@ start_proc:
    pop   ZL
    pop   YH
    pop   YL
-   pop   XH
-   pop   XL
+   pop   r22
    pop   r16
 
    ret
@@ -179,9 +198,6 @@ sys_sleep:
 .section .data
 ; currently active process
 current_proc:
-.space 1
-; total number of "running" processes
-num_proc:
 .space 1
 ; process list
 proc_list:

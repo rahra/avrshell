@@ -7,6 +7,7 @@
 
 #include <avr/io.h>
 
+#define NUM_INT_VECTS 26
 
 .section .vectors
 
@@ -89,6 +90,7 @@
 
    rcall init_procs              ; init thread structures
    rcall init_timer              ; init time slice timer
+   rcall init_int_vectors        ; init interrupt memory vectors
 
    ldi   r16,0x00                ; put address 0x0000 (reset vector) on stack
    push  r16
@@ -102,55 +104,109 @@
 
 .section .text
 
+
+init_int_vectors:
+   ldi   YL,lo8(int_vec)            ; get memory int vector table
+   ldi   YH,hi8(int_vec)
+
+   ldi   XL,pm_lo8(std_handler)     ; get address of standard handler
+   ldi   XH,pm_hi8(std_handler)
+
+   ldi   r16,NUM_INT_VECTS          ; get number of vectors
+.Liivloop:
+   st    Y+,XL                      ; write standard handler address to table
+   st    Y+,XH
+   dec   r16
+   brne  .Liivloop
+
+   ret
+
+
 default_handler:
    push  r16
    in    r16,_SFR_IO_ADDR(SREG)
    push  r16
-   push  r24
-   push  r25
+   push  XL
+   push  XH
    push  YL
    push  YH
-
-   in    YL,_SFR_IO_ADDR(SPL)
-   in    YH,_SFR_IO_ADDR(SPH)
 
    ; stack layout:
    ; +1: YH
    ; +2: YL
-   ; +3  r25
-   ; +4: r24
+   ; +3: XH
+   ; +4: XL
    ; +5: r16 (SREG)
    ; +6: r16
-   ; +7: lo8(rcall .)
-   ; +8: hi8(rcall .)
+   ; +7: hi8(rcall .)
+   ; +8: lo8(rcall .)
+
+   in    YL,_SFR_IO_ADDR(SPL)
+   in    YH,_SFR_IO_ADDR(SPH)
+
+   ldd   r16,Y+8           ; get interrupt programm address of rcall in vector table
+   dec   r16
+
+   mov   r26,r16           ; calculate int vector number
+   lsr   r26
+   inc   r26
+   sts   int_nr,r26        ; save int vector number to memory
+
+   ldi   XL,lo8(int_vec)   ; get vector table address
+   ldi   XH,hi8(int_vec)
+   add   XL,r16            ; add offset
+   clr   r16
+   adc   XH,r16
+
+   ld    r16,X+            ; get lower address of vector
+   std   Y+8,r16           ; write to stack
+   ld    r16,X+            ; get higher address of vector
+   std   Y+7,r16           ; write to stack
+
+   pop   YH
+   pop   YL
+   pop   XH
+   pop   XL
+   pop   r16
+   out   _SFR_IO_ADDR(SREG),r16
+   pop   r16
+
+   ret                     ; -> this actually calls the interrupt handler
+
+
+std_handler:
+   push  r22
+   in    r22,_SFR_IO_ADDR(SREG)
+   push  r22
+   push  r24
+   push  r25
 
    ldi   r24,lo8(.Lm_int_)
    ldi   r25,hi8(.Lm_int_)
    ldi   r22,3
    rcall sys_pwrite
 
-   ldd   r24,Y+8
-   dec   r24
-   rcall write_hexbyte
+;   lds   r24,int_nr       ; probably not int safe
+;   rcall write_hexbyte
    ldi   r24,'\n'
    rcall sys_send
 
-   ldd   r16,Y+5           ; move saved val of r16 2 bytes back for final stack restore
-   std   Y+8,r16
-
-   pop   YH
-   pop   YL
    pop   r25
    pop   r24
-   pop   r16
-   out   _SFR_IO_ADDR(SREG),r16
-   pop   r16
-
-   pop   r16               ;restore stack
-   pop   r16
-
+   pop   r22
+   out   _SFR_IO_ADDR(SREG),r22
+   pop   r22
    reti
+
 
 .Lm_int_:
 .string "INT"
+
+.section .data
+; number of current interrupt
+int_nr:
+.space 1
+; interrupt vectors
+int_vec:
+.space NUM_INT_VECTS * 2
 

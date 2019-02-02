@@ -134,17 +134,11 @@ start_proc:
    mov   r22,r16
    rcall stack_address
 
-   ldi   ZL,lo8(exit_proc)    ; get address of process exit handler
-   ldi   ZH,hi8(exit_proc)
-   lsr   ZH
-   ror   ZL
+   ldi   ZL,pm_lo8(exit_proc)    ; get address of process exit handler
+   ldi   ZH,pm_hi8(exit_proc)
 
    st    Y,ZL     ; and put it on new process's stack 1st
    st    -Y,ZH
-
-; The C compiler already passes a code address
-;   lsr   XH    ; divide process entry address by 2
-;   ror   XL    ; (because AVR prog addresses are word not byte addresses)
 
    st    -Y,r24   ; save entry point to the stack of the new process
    st    -Y,r25

@@ -94,10 +94,8 @@
    push  r16
    push  r16
 
-   ldi   r16,lo8(main)           ; start first process (main)
-   ldi   r17,hi8(main)
-   lsr   r17
-   ror   r16
+   ldi   r16,pm_lo8(main)           ; start first process (main)
+   ldi   r17,pm_hi8(main)
    push  r16
    push  r17
    reti

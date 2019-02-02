@@ -115,8 +115,9 @@ get_next_proc:
 
 ; Start a new process
 ; @param r25:r24 Start address of new process (word address)
-.global start_proc
-start_proc:
+; @return r24 pid of new process
+.global new_proc
+new_proc:
    push  r16
    push  r22
    push  YL
@@ -158,11 +159,13 @@ start_proc:
    st    Z+,YL   ; store new stack pointer to proc_list
    st    Z+,YH
 
-   ldi   r16,PSTATE_RUN    ; set process state to RUN
+   ldi   r16,PSTATE_NEW    ; set process state to RUN
    st    Z,r16
 
    ; enable interrupts again
    sei
+
+   mov   r24,r22           ; move pid to return register
 
    pop   ZH
    pop   ZL
@@ -173,6 +176,62 @@ start_proc:
 
    ret
 
+
+; Change state of process.
+; @param r24 Pid of process to change state.
+; @param r22 Process state to set.
+; @return r24 pid of new process
+.global proc_state
+proc_state:
+   push  r16
+   push  ZL
+   push  ZH
+
+   mov   r16,r24
+   rcall proc_list_address
+   std   Z+PSTRUCT_STATE_OFF,r22
+
+   pop   ZH
+   pop   ZL
+   pop   r16
+   ret
+
+
+; Run process.
+; @param r24 Pid of process to run.
+.global run_proc
+run_proc:
+   push  r22
+
+   ldi   r22,PSTATE_RUN
+   rcall proc_state
+
+   pop   r22
+   ret
+
+
+; Stop process.
+; @param r24 Pid of process to stop.
+.global stop_proc
+stop_proc:
+   push  r22
+
+   ldi   r22,PSTATE_STOP
+   rcall proc_state
+
+   pop   r22
+   ret
+
+
+; Start a new process
+; @param r25:r24 Start address of new process (word address)
+; @return r24 pid of new process
+.global start_proc
+start_proc:
+   rcall new_proc
+   rcall run_proc
+   ret
+ 
 
 ; Calculate address of stack in memory
 ; @param r16 Number of process (PID)
@@ -195,7 +254,7 @@ exit_proc:
    lds   r16,current_proc
    rcall proc_list_address       ; get proc_list address of current process
 
-   ldi   r16,PSTATE_UNUSED       ; set process state to UNUSED
+   ldi   r16,PSTATE_ZOMBIE       ; set process state to ZOMBIE
    std   Z+PSTRUCT_STATE_OFF,r16
 
    cli                           ; clear interrupts and immediately force context switch

@@ -13,15 +13,20 @@
 #define PSTATE_RUN 1
 #define PSTATE_SLEEP 2
 #define PSTATE_ZOMBIE 3
+#define PSTATE_NEW 4
+#define PSTATE_STOP 5
 // offset of pstate in process list struct
 #define PSTRUCT_STATE_OFF 2
 
 
 #ifndef __ASSEMBLER__
 
+typedef int8_t pid_t;
 
-void start_proc(void (*)(void));
-
+pid_t start_proc(void (*)(void));
+pid_t new_proc(void (*)(void));
+void run_proc(pid_t);
+void stop_proc(pid_t);
 
 #endif
 

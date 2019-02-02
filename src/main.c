@@ -3,6 +3,7 @@
 #include "progmem.h"
 #include "parser.h"
 #include "avrshell.h"
+#include "process.h"
 
 
 #define SYS_PWRITE(x) sys_pwrite(x, sizeof(x) - 1)
@@ -43,6 +44,10 @@ static const char m_help2_[] PROGMEM =
    "ste <memaddr> <byte> ...... write byte to EEPROM memory\n"
    "cpu ....................... CPU info\n"
    "uptime .................... show system uptime ticks.\n";
+static const char m_help3_[] PROGMEM =
+   "run <pid> ................. run process <pid>.\n"
+   "stop <pid> ................ stop process <pid>.\n"
+   "new <address> ............. create new process with start routine at <address>.\n";
 
 
 void println(void)
@@ -220,6 +225,7 @@ void help(void)
    SYS_PWRITE(m_help0_);
    SYS_PWRITE(m_help1_);
    SYS_PWRITE(m_help2_);
+   SYS_PWRITE(m_help3_);
 }
 
 
@@ -240,7 +246,7 @@ void print_fuse(int addr, const char *str)
 int main(void)
 {
    unsigned char rlen;
-   char buf[256], *cmd;
+   static char buf[256], *cmd;   //FIXME: moved to main memory, buffer too large on stack
    int addr, off;
    int val;
    int8_t cmdnr, byte;
@@ -384,6 +390,28 @@ int main(void)
             println();
             break;
 
+         case C_RUN:
+            if (get_int_param0(&cmd, &addr))
+               break;
+            run_proc(addr);
+            break;
+
+         case C_STOP:
+            if (get_int_param0(&cmd, &addr))
+               break;
+            stop_proc(addr);
+            break;
+
+          case C_NEW:
+            if (get_int_param0(&cmd, &addr))
+               break;
+            addr >>= 1;    // program addresses are word addresses on AVR
+            pid_t pid = new_proc((void (*)(void)) addr);
+            lint_to_str(pid, buf, sizeof(buf));
+            sys_write(buf, strlen(buf));
+            println();
+            break;
+ 
          case C_HELP:
             help();
             break;

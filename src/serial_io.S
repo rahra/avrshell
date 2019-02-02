@@ -232,7 +232,6 @@ serial_tx_handler:
 
 .global  sys_write
 ; write string to serial port output buffer
-; modify: r22,r30,r31
 ; @param r25:r24 src Source SRAM address in Y (modified)
 ; @param r22 cnt Number of bytes in (modified)
 sys_write:

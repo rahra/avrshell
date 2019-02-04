@@ -1,6 +1,9 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
+#ifndef __ASSEMBLER__
+#include <stdint.h>
+#endif
 
 // maximum number of processes
 #define MAX_PROCS 5

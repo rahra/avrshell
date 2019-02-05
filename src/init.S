@@ -92,9 +92,9 @@
    rcall init_timer              ; init time slice timer
    rcall init_int_vectors        ; init interrupt memory vectors
 
-   ldi   r16,0x00                ; put address 0x0000 (reset vector) on stack
-   push  r16
-   push  r16
+   clr   r1                      ; put address 0x0000 (reset vector) on stack
+   push  r1                      ; ...in case main returns...
+   push  r1                      ; ...and make sure that r1 contains 0
 
    ldi   r16,pm_lo8(main)           ; start first process (main)
    ldi   r17,pm_hi8(main)

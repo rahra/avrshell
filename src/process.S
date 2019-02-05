@@ -155,6 +155,8 @@ new_proc:
 
    sbiw  YL,1
 
+   std   Y+32,r16          ; make sure that r1 will be pop with 0 from stack
+
    ; store final stack address to the process list
    mov   r16,r22
    rcall proc_list_address

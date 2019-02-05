@@ -64,6 +64,7 @@ context_switch:
 ; @param r16 number of process
 ; @return Z contains address of proc_list entry
 proc_list_address:
+   push  r0
    push  r17
 
    ; calculate process list offset:
@@ -77,8 +78,10 @@ proc_list_address:
    ; and add offset
    add   ZL,r0
    adc   ZH,r1
+   clr   r1
    
    pop   r17
+   pop   r0
    ret
 
 
@@ -237,6 +240,8 @@ start_proc:
 ; @param r16 Number of process (PID)
 ; @return Y address of stack
 stack_address:
+   push  r0
+
    mov   r0,r16
    ldi   r16,STACK_SIZE
    mul   r16,r0
@@ -245,7 +250,9 @@ stack_address:
    ldi   YH,hi8(RAMEND)
    sub   YL,r0
    sbc   YH,r1
+   clr   r1
 
+   pop   r0
    ret
 
 

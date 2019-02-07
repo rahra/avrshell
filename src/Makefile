@@ -30,8 +30,8 @@ MCU = atmega328p
 USBDEV = /dev/ttyACM0
 BAUD = 115200
 # settings for Duemilanove, Nano
-#USBDEV = /dev/ttyUSB3
-#BAUD = 57600
+USBDEV = /dev/ttyUSB0
+BAUD = 57600
 
 AS	= avr-as
 CC = avr-gcc
@@ -43,8 +43,9 @@ COMPRESSOR = xz
 CFLAGS = -g -Wall -mmcu=$(MCU) -std=c99 -fno-jump-tables
 CPPLAGS = -g -mmcu=$(MCU)
 ASFLAGS = -g -mmcu=$(MCU)
+LDFLAGS = -mmcu=$(MCU) -Tdata=0x800100 -nostdlib
 # libgcc is used for gcc e.g. if '/' and '%' operators are used
-LDFLAGS = -mmcu=$(MCU) -Tdata=0x800100 -nostdlib -lgcc
+LDLIBS = -lgcc
 #LDFLAGS = -Tbss=0x800100 -Tdata=0x800300
 AVRDUDE = avrdude
 AVRDUDE_CONF = /etc/avrdude.conf
@@ -52,7 +53,7 @@ AVRDUDE_CONF = /etc/avrdude.conf
 all: $(TARGET).hex
 
 $(TARGET).elf: $(OBJECTS)
-	$(CC)	$(OBJECTS) -o $@ $(LDFLAGS)
+	$(CC)	$(LDFLAGS) $(OBJECTS) -o $@ $(LDLIBS)
 
 $(TARGET).hex: $(TARGET).elf
 	avr-objcopy -O ihex -R .eeprom $(TARGET).elf $(TARGET).hex

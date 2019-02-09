@@ -37,10 +37,10 @@ static const char m_help0_[] PROGMEM =
 static const char m_help1_[] PROGMEM =
    "lds <memaddr> ............. read byte from memory\n"
    "sts <memaddr> <byte> ...... write byte to memory\n"
-   "dump <memaddr> [<len>] .... dump <len> bytes of RAM memory\n"
-   "pdump <memaddr> [<len>} ... dump <len> bytes of program memory\n";
+   "dump [<memaddr> [<len>]] .. dump <len> bytes of RAM memory\n"
+   "pdump [<memaddr> [<len>]] . dump <len> bytes of program memory\n";
 static const char m_help2_[] PROGMEM =
-   "edump <memaddr> [<len>} ... dump <len> bytes of EEPROM memory\n"
+   "edump [<memaddr> [<len>] .. dump <len> bytes of EEPROM memory\n"
    "ste <memaddr> <byte> ...... write byte to EEPROM memory\n"
    "cpu ....................... CPU info\n"
    "uptime .................... show system uptime ticks.\n";
@@ -249,7 +249,7 @@ int main(void)
    static char buf[256], *cmd;   //FIXME: moved to main memory, buffer too large on stack
    int addr, off;
    int val;
-   int8_t cmdnr, byte;
+   int8_t cmdnr, byte, err;
 
    init_serial();
    println();
@@ -317,8 +317,15 @@ int main(void)
 
          //dump
          case C_DUMP:
-            if (get_int_param0(&cmd, &addr))
-               break;
+            if ((err = get_int_param(&cmd, &addr)))
+            {
+               if (err != E_NOPARM)
+               {
+                  output_error(err);
+                  break;
+               }
+               addr = 0;
+            }
 
             val = 512;
             get_int_param(&cmd, &val);

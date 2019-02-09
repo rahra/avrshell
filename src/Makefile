@@ -30,8 +30,8 @@ MCU = atmega328p
 USBDEV = /dev/ttyACM0
 BAUD = 115200
 # settings for Duemilanove, Nano
-USBDEV = /dev/ttyUSB0
-BAUD = 57600
+#USBDEV = /dev/ttyUSB0
+#BAUD = 57600
 
 AS	= avr-as
 CC = avr-gcc

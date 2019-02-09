@@ -13,7 +13,7 @@
 #define MEM_PRG 1
 #define MEM_EEP 3
 
-static const char m_helo_[] PROGMEM = "AVR shell v0.2 (c) 2019 Bernhard Fischer, <bf@abenteuerland.at>";
+static const char m_helo_[] PROGMEM = "AVR shell v0.3 (c) 2019 Bernhard Fischer, <bf@abenteuerland.at>";
 static const char m_prompt_[] __attribute__((__progmem__)) = "Arduino# ";
 static const char m_ok_[] __attribute__((__progmem__)) = "OK";
 static const char m_unk_[] PROGMEM = "*** unknown command";

@@ -316,6 +316,23 @@ sys_sleep:
    ret
 
 
+; idle process
+.global idle
+idle:
+   ldi   YL,lo8(proc_list)
+   ldi   YH,hi8(proc_list)
+   ldi   r24,PSTATE_IDLE
+   std   Y+PSTRUCT_STATE_OFF,r24
+
+   ldi   r24,pm_lo8(main)
+   ldi   r25,pm_hi8(main)
+   rcall start_proc
+
+.Lidle_loop:
+   sleep
+   rjmp  .Lidle_loop
+
+
 .section .data
 ; currently active process
 current_proc:

@@ -61,8 +61,9 @@ t0_handler:
    cpi   r16,NEXT_PROC_SAME      ; dont switch if same process
    breq  .Lt0_exit
    cpi   r16,NEXT_PROC_UNAVAIL   ; do idle
-   breq  .Lt0_exit
-
+   brne  .Lt0_prep_full
+   ldi   r16,0                   ; put pid of idle process into r16
+.Lt0_prep_full:
    sts   .Lnext_proc_,r16
    pop   r16                     ; restore registers
    out   _SFR_IO_ADDR(SREG),r16

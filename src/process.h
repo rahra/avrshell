@@ -15,6 +15,7 @@
 #define PSTATE_ZOMBIE 3
 #define PSTATE_NEW 4
 #define PSTATE_STOP 5
+#define PSTATE_IDLE 7
 // offset of pstate in process list struct
 #define PSTRUCT_STATE_OFF 2
 

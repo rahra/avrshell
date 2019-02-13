@@ -112,8 +112,8 @@
    push  r1                      ; ...in case main returns...
    push  r1                      ; ...and make sure that r1 contains 0
 
-   ldi   r16,pm_lo8(main)           ; start first process (main)
-   ldi   r17,pm_hi8(main)
+   ldi   r16,pm_lo8(idle)           ; start first process (main)
+   ldi   r17,pm_hi8(idle)
    push  r16
    push  r17
    reti

@@ -51,11 +51,19 @@ init_timer:
 .global t0_handler
 t0_handler:
 #if 1
+   push r16
+   in    r16,_SFR_IO_ADDR(SREG)
+   rcall t0_count                ; increase uptime counter
+   out   _SFR_IO_ADDR(SREG),r16
+   pop   r16
+
+.global scheduler
+scheduler:
    push  r16
    in    r16,_SFR_IO_ADDR(SREG)
    push  r16
 
-   rcall t0_count                ; increase uptime counter
+   rcall validate_events         ; validate system events for every process
 
    rcall check_ctx_switch        ; determine next process to schedule
    cpi   r16,NEXT_PROC_SAME      ; dont switch if same process

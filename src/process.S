@@ -6,6 +6,8 @@
 
 .file "process.S"
 
+.include "macro.i"
+
 #include <avr/io.h>
 
 #include "process.h"
@@ -17,6 +19,7 @@
 init_procs:
    clr   r16               ; Set the current PID to 0.
    sts   current_proc,r16
+   sts   .Lsys_event_,r16  ; clear events
 
    ldi   YL,lo8(proc_list)       ; zero process list
    ldi   YH,hi8(proc_list)
@@ -307,7 +310,7 @@ exit_proc:
 .global sys_schedule
 sys_schedule:
    cli                           ; clear interrupts and immediately force context switch
-   rjmp  t0_handler
+   rjmp  scheduler
 
 
 .global sys_sleep
@@ -333,9 +336,42 @@ idle:
    rjmp  .Lidle_loop
 
 
+; function to validate system events
+.global validate_events
+validate_events:
+   pushm 24,29
+
+   ldi   YL,lo8(proc_list)
+   ldi   YH,hi8(proc_list)
+   ldi   r27,MAX_PROCS
+   lds   r26,.Lsys_event_
+   mov   r24,r26
+   com   r24
+.Lve_loop:
+   ldd   r25,Y+PSTRUCT_EVENT_OFF
+   and   r25,r26                    ; test if system events are in event mask of process
+   breq  .Lve_next
+
+   ldd   r25,Y+PSTRUCT_EVENT_OFF
+   and   r25,r24                    ; clear event bits in process
+   std   Y+PSTRUCT_EVENT_OFF,r25
+
+   ldi   r25,PSTATE_RUN             ; and set process state to RUN
+   std   Y+PSTRUCT_STATE_OFF,r25
+
+.Lve_next:
+   dec   r27
+   brne  .Lve_loop
+
+   popm  24,29
+   ret
+
+
 .section .data
 ; currently active process
 current_proc:
+.space 1
+.Lsys_event_:
 .space 1
 ; process list
 proc_list:

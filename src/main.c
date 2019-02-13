@@ -13,7 +13,7 @@
 #define MEM_PRG 1
 #define MEM_EEP 3
 
-static const char m_helo_[] PROGMEM = "AVR shell v0.2 (c) 2019 Bernhard Fischer, <bf@abenteuerland.at>";
+static const char m_helo_[] PROGMEM = "AVR shell v0.3 (c) 2019 Bernhard Fischer, <bf@abenteuerland.at>";
 static const char m_prompt_[] __attribute__((__progmem__)) = "Arduino# ";
 static const char m_ok_[] __attribute__((__progmem__)) = "OK";
 static const char m_unk_[] PROGMEM = "*** unknown command";
@@ -37,10 +37,10 @@ static const char m_help0_[] PROGMEM =
 static const char m_help1_[] PROGMEM =
    "lds <memaddr> ............. read byte from memory\n"
    "sts <memaddr> <byte> ...... write byte to memory\n"
-   "dump <memaddr> [<len>] .... dump <len> bytes of RAM memory\n"
-   "pdump <memaddr> [<len>} ... dump <len> bytes of program memory\n";
+   "dump [<memaddr> [<len>]] .. dump <len> bytes of RAM memory\n"
+   "pdump [<memaddr> [<len>]] . dump <len> bytes of program memory\n";
 static const char m_help2_[] PROGMEM =
-   "edump <memaddr> [<len>} ... dump <len> bytes of EEPROM memory\n"
+   "edump [<memaddr> [<len>] .. dump <len> bytes of EEPROM memory\n"
    "ste <memaddr> <byte> ...... write byte to EEPROM memory\n"
    "cpu ....................... CPU info\n"
    "uptime .................... show system uptime ticks.\n";
@@ -249,7 +249,7 @@ int main(void)
    static char buf[256], *cmd;   //FIXME: moved to main memory, buffer too large on stack
    int addr, off;
    int val;
-   int8_t cmdnr, byte;
+   int8_t cmdnr, byte, err;
 
    init_serial();
    println();
@@ -261,7 +261,10 @@ int main(void)
       SYS_PWRITE(m_prompt_);
       sys_read_flush();
       rlen = sys_read(buf);
-
+sys_send('\'');
+for (int8_t i = 0; i < rlen; i++)
+sys_send(i+0x20);
+sys_send('\'');
       cmd = buf;
       // skip leading spaces
       for (; *cmd == ' '; cmd++);
@@ -317,8 +320,15 @@ int main(void)
 
          //dump
          case C_DUMP:
-            if (get_int_param0(&cmd, &addr))
-               break;
+            if ((err = get_int_param(&cmd, &addr)))
+            {
+               if (err != E_NOPARM)
+               {
+                  output_error(err);
+                  break;
+               }
+               addr = 0;
+            }
 
             val = 512;
             get_int_param(&cmd, &val);

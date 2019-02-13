@@ -7,7 +7,7 @@
 
 #include <avr/io.h>
 
-#define NUM_INT_VECTS 26
+#include "avrshell.h"
 
 .section .vectors
 
@@ -17,44 +17,56 @@
    rjmp  __ctors_start
 
 .org 0x04
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
+   rcall default_handler
+
+.org 0x08
+   rcall default_handler
+
+.org 0x0c
+   rcall default_handler
+
+.org 0x10
+   rcall default_handler
+
+.org 0x14
+   rcall default_handler
+
+.org 0x18
+   rcall default_handler
+
+.org 0x1c
+   rcall default_handler
+
+.org 0x20
+   rcall default_handler
+
+.org 0x24
+   rcall default_handler
+
+.org 0x28
+   rcall default_handler
+
+.org 0x2c
+   rcall default_handler
+
+.org 0x30
+   rcall default_handler
+
+.org 0x34
+   rcall default_handler
+
+.org 0x38
+   rcall default_handler
+
+.org 0x3c
+   rcall default_handler
 
 ; timer 0 overflow
 .org 0x40
    rjmp  t0_handler
 
 .org 0x44
-   rcall .
-   rjmp  default_handler
+   rcall default_handler
 
 ; serial input buffer vector
 .org 0x48
@@ -64,18 +76,22 @@
    rjmp  serial_tx_handler
 
 .org 0x50
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
-   rcall .
-   rjmp  default_handler
+   rcall default_handler
+
+.org 0x54
+   rcall default_handler
+
+.org 0x58
+   rcall default_handler
+
+.org 0x5c
+   rcall default_handler
+
+.org 0x60
+   rcall default_handler
+
+.org 0x64
+   rcall default_handler
 
 
 ; "ConstrucTORS"
@@ -92,9 +108,9 @@
    rcall init_timer              ; init time slice timer
    rcall init_int_vectors        ; init interrupt memory vectors
 
-   ldi   r16,0x00                ; put address 0x0000 (reset vector) on stack
-   push  r16
-   push  r16
+   clr   r1                      ; put address 0x0000 (reset vector) on stack
+   push  r1                      ; ...in case main returns...
+   push  r1                      ; ...and make sure that r1 contains 0
 
    ldi   r16,pm_lo8(main)           ; start first process (main)
    ldi   r17,pm_hi8(main)
@@ -138,8 +154,8 @@ default_handler:
    ; +4: XL
    ; +5: r16 (SREG)
    ; +6: r16
-   ; +7: hi8(rcall .)
-   ; +8: lo8(rcall .)
+   ; +7: hi8(rcall default_handler)
+   ; +8: lo8(rcall default_handler)
 
    in    YL,_SFR_IO_ADDR(SPL)
    in    YH,_SFR_IO_ADDR(SPH)
@@ -197,6 +213,41 @@ std_handler:
    out   _SFR_IO_ADDR(SREG),r22
    pop   r22
    reti
+
+
+; register interrupt routine
+; @param r24 interrupt vector number (1-26)
+; @param r23:r22 function address
+.global register_int
+register_int:
+   dec   r24               ; check if interrupt number is within range
+   brmi  .Lri_err
+   cpi   r24,NUM_INT_VECTS
+   brpl  .Lri_err
+
+   push  YL
+   push  YH
+
+   lsl   r24               ; calculate table offset from int number
+
+   ldi   YL,lo8(int_vec)   ; get int vector table address
+   ldi   YH,hi8(int_vec)
+
+   add   YL,r24            ; add offset
+   ldi   r24,0
+   adc   YH,r24
+
+   st    Y+,r22            ; write function address to table
+   st    Y,r23
+
+   pop   YH
+   pop   YL
+
+   ret
+
+.Lri_err:
+   ldi   r24,0xff
+   ret
 
 
 .Lm_int_:

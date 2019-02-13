@@ -27,6 +27,8 @@
 
 #ifndef __ASSEMBLER__
 
+#include <stdint.h>
+
 typedef int8_t pid_t;
 
 pid_t start_proc(void (*)(void));

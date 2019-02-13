@@ -11,6 +11,8 @@
 
 #include <avr/io.h>
 
+#include "process.h"
+
 .section .text
 
 
@@ -60,9 +62,14 @@ t0_handler:
    in    YL,_SFR_IO_ADDR(SPL)
    in    YH,_SFR_IO_ADDR(SPH)
 
-   ; do context switch
+   ; determine next process to schedule
+   rcall check_ctx_switch
+   cpi   r16,NEXT_PROC_SAME
+   breq  .Lt0_noswitch
+   cpi   r16,NEXT_PROC_UNAVAIL
+   breq  .Lt0_noswitch
    rcall context_switch
-
+.Lt0_noswitch:
    ; copy new stack address in Y to SP
    out   _SFR_IO_ADDR(SPL),YL
    out   _SFR_IO_ADDR(SPH),YH

@@ -18,6 +18,8 @@
 // offset of pstate in process list struct
 #define PSTRUCT_STATE_OFF 2
 
+#define NEXT_PROC_UNAVAIL 0xff
+#define NEXT_PROC_SAME 0xfe
 
 #ifndef __ASSEMBLER__
 

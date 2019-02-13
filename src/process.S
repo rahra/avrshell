@@ -33,12 +33,36 @@ init_procs:
    ret
 
 
+; check if context switch is necessary
+; @return returns in r16 the number of the new process to switch to, 0 if it should
+; not switch, and -1 if no process available (i.e. all are waiting)
+.global check_ctx_switch
+check_ctx_switch:
+   push  r22
+
+   ; determine next process to schedule
+   lds   r16,current_proc
+   ldi   r22,PSTATE_RUN
+   rcall get_next_proc
+   cpi   r16,NEXT_PROC_UNAVAIL   ; test if no process is available
+   breq  .Lccs_exit              ; exit in case
+   lds   r22,current_proc
+   cp    r16,r22                 ; test if no switch necessary (i.e. same process)
+   brne  .Lccs_exit              ; exit if different process
+   ldi   r16,NEXT_PROC_SAME      ; return 0 meaning no switch
+.Lccs_exit:
+   pop   r22
+   ret
+
+
 ; Function saves stack pointer and returns new stack pointer
+; @param r16 pid to switch to
 ; @param stack pointer to save in Y
 ; @return new stack pointer returned in Y
 
 .global context_switch
 context_switch:
+   mov   r24,r16
    lds   r16,current_proc
    rcall proc_list_address
 
@@ -47,8 +71,7 @@ context_switch:
    st    Z,YH
 
    ; determine next process to schedule
-   ldi   r22,PSTATE_RUN
-   rcall get_next_proc
+   mov   r16,r24
    sts   current_proc,r16
 
    ; calculate process list address of new process
@@ -90,12 +113,14 @@ proc_list_address:
 ; This actually is the (most simple round robin) scheduler ;)
 ; @param r16 current process
 ; @param r22 process state to look for
-; @return r16 number of next process
+; @return r16 number of next process or -1 if no process available
 get_next_proc:
    push  r17
+   push  r18
    push  ZL
    push  ZH
 
+   mov   r18,r16
 .Lgnpinc:
    ; increase current PID
    inc   r16
@@ -106,13 +131,16 @@ get_next_proc:
 .Lgnpstate:
    rcall proc_list_address
    ldd   r17,Z+PSTRUCT_STATE_OFF ; get process state
-   cp    r17,r22
+   cp    r17,r22           ; check if we found a process in the state we look for
    breq  .Lgnpexit
-   rjmp  .Lgnpinc
+   cp    r16,r18           ; check if we found the same process again which means the loop restarts
+   brne  .Lgnpinc          ; if not, continue loop
 
+   ldi   r16,NEXT_PROC_UNAVAIL   ; no process available
 .Lgnpexit:
    pop   ZH
    pop   ZL
+   pop   r18
    pop   r17
    ret
 
@@ -136,6 +164,8 @@ new_proc:
    clr   r16
    ldi   r22,PSTATE_UNUSED
    rcall get_next_proc
+   cpi   r16,NEXT_PROC_UNAVAIL
+   breq  .Lnp_noslot
    mov   r22,r16
    rcall stack_address
 
@@ -168,6 +198,7 @@ new_proc:
    ldi   r16,PSTATE_NEW    ; set process state to RUN
    st    Z,r16
 
+.Lnp_exit:
    ; enable interrupts again
    sei
 
@@ -181,6 +212,10 @@ new_proc:
    pop   r16
 
    ret
+
+.Lnp_noslot:
+   mov   r22,r16
+   rjmp  .Lnp_exit
 
 
 ; Change state of process.

@@ -64,6 +64,8 @@ context_switch:
 ; @param r16 number of process
 ; @return Z contains address of proc_list entry
 proc_list_address:
+   push  r0
+   push  r1
    push  r17
 
    ; calculate process list offset:
@@ -79,6 +81,8 @@ proc_list_address:
    adc   ZH,r1
    
    pop   r17
+   pop   r1
+   pop   r0
    ret
 
 
@@ -151,6 +155,8 @@ new_proc:
    st    -Y,r16
 
    sbiw  YL,1
+
+   std   Y+32,r16          ; make sure that r1 will be pop with 0 from stack
 
    ; store final stack address to the process list
    mov   r16,r22
@@ -237,6 +243,9 @@ start_proc:
 ; @param r16 Number of process (PID)
 ; @return Y address of stack
 stack_address:
+   push  r0
+   push  r1
+
    mov   r0,r16
    ldi   r16,STACK_SIZE
    mul   r16,r0
@@ -245,7 +254,10 @@ stack_address:
    ldi   YH,hi8(RAMEND)
    sub   YL,r0
    sbc   YH,r1
+   clr   r1
 
+   pop   r1
+   pop   r0
    ret
 
 
@@ -257,6 +269,8 @@ exit_proc:
    ldi   r16,PSTATE_ZOMBIE       ; set process state to ZOMBIE
    std   Z+PSTRUCT_STATE_OFF,r16
 
+.global sys_schedule
+sys_schedule:
    cli                           ; clear interrupts and immediately force context switch
    rjmp  t0_handler
 

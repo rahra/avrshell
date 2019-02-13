@@ -33,8 +33,8 @@ init_timer:
    ldi   r16,1                   ; timer interrupt enable
    sts   TIMSK0,r16
 
-   ldi   XL,lo8(uptime)          ; init uptime to 0
-   ldi   XH,hi8(uptime)
+   ldi   XL,lo8(.Luptime_)          ; init uptime to 0
+   ldi   XH,hi8(.Luptime_)
 
    clr   r16
    st    X+,r16
@@ -133,8 +133,8 @@ t0_handler:
 t0_count:
    pushm 26,29
 
-   ldi   YL,lo8(uptime)    ; load address of uptime variable to Y
-   ldi   YH,hi8(uptime)
+   ldi   YL,lo8(.Luptime_)    ; load address of uptime variable to Y
+   ldi   YH,hi8(.Luptime_)
 
    ld    r26,Y             ; get lower 16 bit
    ldd   r27,Y+1
@@ -160,8 +160,8 @@ t0_count:
  */
 .global get_uptime
 get_uptime:
-   ldi   XL,lo8(uptime)
-   ldi   XH,hi8(uptime)
+   ldi   XL,lo8(.Luptime_)
+   ldi   XH,hi8(.Luptime_)
 
    cli
    ld    r22,X+
@@ -174,7 +174,7 @@ get_uptime:
 
 .section .data
 ; 32 bit uptime counter
-uptime:
+.Luptime_:
 .space 4
 .Lnext_proc_:
 .space 1

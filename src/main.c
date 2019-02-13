@@ -261,10 +261,6 @@ int main(void)
       SYS_PWRITE(m_prompt_);
       sys_read_flush();
       rlen = sys_read(buf);
-sys_send('\'');
-for (int8_t i = 0; i < rlen; i++)
-sys_send(i+0x20);
-sys_send('\'');
       cmd = buf;
       // skip leading spaces
       for (; *cmd == ' '; cmd++);

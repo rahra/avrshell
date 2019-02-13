@@ -50,6 +50,53 @@ init_timer:
  */
 .global t0_handler
 t0_handler:
+#if 1
+   push  r16
+   in    r16,_SFR_IO_ADDR(SREG)
+   push  r16
+
+   rcall t0_count                ; increase uptime counter
+
+   rcall check_ctx_switch        ; determine next process to schedule
+   cpi   r16,NEXT_PROC_SAME      ; dont switch if same process
+   breq  .Lt0_exit
+   cpi   r16,NEXT_PROC_UNAVAIL   ; do idle
+   breq  .Lt0_exit
+
+   sts   .Lnext_proc_,r16
+   pop   r16                     ; restore registers
+   out   _SFR_IO_ADDR(SREG),r16
+   pop   r16
+
+   rjmp  .Lt0_fullsave           ; jump to full context switch
+
+.Lt0_exit:
+   pop   r16
+   out   _SFR_IO_ADDR(SREG),r16
+   pop   r16
+   reti
+
+.Lt0_fullsave:
+   pushm 0,31
+   in    r16,_SFR_IO_ADDR(SREG)
+   push  r16
+
+   ; copy SP to Y
+   in    YL,_SFR_IO_ADDR(SPL)
+   in    YH,_SFR_IO_ADDR(SPH)
+
+   lds   r16,.Lnext_proc_
+   rcall context_switch
+
+   ; copy new stack address in Y to SP
+   out   _SFR_IO_ADDR(SPL),YL
+   out   _SFR_IO_ADDR(SPH),YH
+
+   pop   r16
+   out   _SFR_IO_ADDR(SREG),r16
+   popm  0,31
+   reti
+#else
    ; save full context to (current) stack
    pushm 0,31
    in    r16,_SFR_IO_ADDR(SREG)
@@ -79,33 +126,31 @@ t0_handler:
    out   _SFR_IO_ADDR(SREG),r16
    popm  0,31
    reti
-
+#endif
 
 /*! This function increases to system uptime by 1.
  */
 t0_count:
-   ; load address of uptime variable to X
-   ldi   XL,lo8(uptime)
-   ldi   XH,hi8(uptime)
+   pushm 26,29
 
-   ; get current uptime from memory
-   ld    r28,X+
-   ld    r29,X+
-   ld    r30,X+
-   ld    r31,X+
+   ldi   YL,lo8(uptime)    ; load address of uptime variable to Y
+   ldi   YH,hi8(uptime)
 
-   ; increase by 1
-   clr   r16
-   adiw  r28,1
-   adc   r30,r16
-   adc   r31,r16
+   ld    r26,Y             ; get lower 16 bit
+   ldd   r27,Y+1
+   adiw  r26,1             ; add 1
+   st    Y+,r26            ; write back to mem
+   st    Y+,r27
+   brcc  .Lt0c_exit
 
-   ; write uptime back to memory
-   st    -X,r31
-   st    -X,r30
-   st    -X,r29
-   st    -X,r28
+   ld    r26,Y             ; get higher 16 bit
+   ldd   r27,Y+1
+   adiw  r26,1             ; add 1
+   st    Y+,r26            ; write back to mem
+   st    Y+,r27
 
+.Lt0c_exit:
+   popm  26,29
    ret
 
 
@@ -131,4 +176,6 @@ get_uptime:
 ; 32 bit uptime counter
 uptime:
 .space 4
+.Lnext_proc_:
+.space 1
 

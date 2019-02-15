@@ -7,9 +7,9 @@
 
 void init_serial();
 void sys_read_flush();
-unsigned char sys_read(char *);
-void sys_write(const char *, unsigned char);
-void sys_pwrite(const char *, unsigned char);
+uint8_t sys_read(char *);
+uint8_t sys_write(const char *, uint8_t);
+uint8_t sys_pwrite(const char *, uint8_t);
 void sys_send(char);
 
 

@@ -53,37 +53,43 @@ serial_rx_handler:
    in    r24,_SFR_IO_ADDR(SREG)
    push  r24
 
-   lds   r25,kbuf_input_len_
+   lds   r25,kbuf_input_len_        ; get current buffer length
 
    lds   r24,UDR0                   ; get data from serial port
 
+   cpi   r24,'\r'                   ; translate \r to \n
+   brne  .Lsrx_isend
+   ldi   r24,'\n'
+
+.Lsrx_isend:
    rcall sys_isend
 
    cpi   r24,8                      ; check if backspace
    breq  .Lsrx_bs
    cpi   r24,'\r'
    breq  .Lsrx_ready
+   cpi   r24,'\n'
+   breq  .Lsrx_ready
 
    cpi   r25,KBUF_INPUT_SIZE        ; exit if buffer is full
-   brpl  .Lsrx_exit
+   ;brpl  .Lsrx_exit
+   breq  .Lsrx_exit 
 
    ldi   YL,lo8(kbuf_input_)        ; get buffer address
    ldi   YH,hi8(kbuf_input_)
 
-   add   YL,r25                     ; add length to buffer lowbyte
-   inc   r25                        ; inc length
-   sts   kbuf_input_len_,r25        ; store length
-   ldi   r25,0
+   add   YL,r25                     ; add length to buffer low byte
+   ldi   r25,0                      ; add carry to high byte
    adc   YH,r25
 
-   st    Y,r24                      ; store byte
+   st    Y,r24                      ; store input byte to buffer
 
-   ;lds   r25,kbuf_input_len_        ; increase buffer length
-   ;inc   r25
-   ;sts   kbuf_input_len_,r25
-   
+   lds   r25,kbuf_input_len_        ; get current buffer length
+   inc   r25                        ; inc length
+   sts   kbuf_input_len_,r25        ; store length
    cpi   r25,KBUF_INPUT_SIZE        ; set buffer ready if full
-   brpl  .Lsrx_ready
+   ;brpl  .Lsrx_ready
+   breq  .Lsrx_ready
 
 .Lsrx_exit:
    pop   r24
@@ -148,45 +154,43 @@ serial_tx_handler:
    pop   r24
    reti
 
-
+; @param r24 byte to send
 sys_isend:
    push  r25
    lds   r25,kbuf_output_len_
    tst   r25
    brne  .Lsi_exit                  ; exit if buffer is not ready
 
-   push  r24
-   sts   kbuf_output_,r24
-   ldi   r24,1
-   sts   kbuf_output_len_,r24
+   sts   kbuf_output_,r24           ; store byte to 1st position in output buffer
+   ldi   r25,1                      ; set buffer length to 1
+   sts   kbuf_output_len_,r25
 
-   lds   r24,UCSR0B                 ; enable UDR interrupt
-   ori   r24,_BV(UDRIE0)
-   sts   UCSR0B,r24
-   pop   r24
+   lds   r25,UCSR0B                 ; enable UDR interrupt
+   ori   r25,_BV(UDRIE0)
+   sts   UCSR0B,r25
 
 .Lsi_exit: 
    pop   r25
    ret
 
 
+; @param r24 byte to send
 .global sys_send
 sys_send:
-   push  r24
+   push  r25
 
    rcall serial_tx_wait
    
    sts   kbuf_output_,r24
-   ldi   r24,1
-   sts   kbuf_output_len_,r24
+   ldi   r25,1
+   sts   kbuf_output_len_,r25
 
-   cli                              ; enable DRE interrupt
-   lds   r24,UCSR0B
-   ori   r24,_BV(UDRIE0)
+   lds   r25,UCSR0B
+   ori   r25,_BV(UDRIE0)
    sei
-   sts   UCSR0B,r24
+   sts   UCSR0B,r25
  
-   pop   r24
+   pop   r25
    ret
 
  
@@ -237,15 +241,13 @@ sys_write0:
    ldi   r24,KBUF_OUTPUT_SIZE
 
 .Lsw_copy:
-   sts   kbuf_output_len_,r24    ; store length
-
    add   YL,r24                  ; add length to Z
    ldi   r25,0
    adc   YH,r25
 
    rcall serial_tx_wait          ; wait for serial buffer to be ready
 
-   lds   r24,kbuf_output_len_    ; get length
+   sts   kbuf_output_len_,r24    ; store length
 
    tst   r20
    breq  .Lsw_copy_loop_ram
@@ -264,7 +266,6 @@ sys_write0:
    brne  .Lsw_copy_loop_ram
 
 .Lsw_exit:
-   cli                           ; enable DRE interrupt
    lds   r24,UCSR0B
    ori   r24,_BV(UDRIE0)
    sei
@@ -280,10 +281,18 @@ sys_write0:
    ret
 
 
+; wait for serial output buffer to be ready
+; interrupts are disable after return
+; uses r25!
 serial_tx_wait:
-   lds   r24,kbuf_output_len_
-   tst   r24
-   brne  serial_tx_wait             ; FIXME: here we should schedule
+   cli
+   lds   r25,kbuf_output_len_
+   tst   r25
+   breq  .Lswt_exit
+   sei
+   nop
+   rjmp  serial_tx_wait                   ;FIXME: here we should schedule
+.Lswt_exit:
    ret
 
 
@@ -299,7 +308,6 @@ sys_read:
 
    rcall serial_rx_wait
 
-   cli                              ; disable RXC interrupt
    lds   r24,UCSR0B
    andi  r24,~_BV(RXCIE0)
    sei
@@ -335,9 +343,15 @@ sys_read:
 
 
 serial_rx_wait:
+   cli
    lds   r24,kbuf_input_ready_
    tst   r24
-   breq  serial_rx_wait             ; FIXME: schedule...
+   brne  .Lsrxw_exit
+   sei
+   nop
+   rjmp  serial_rx_wait             ; FIXME: schedule...
+
+.Lsrxw_exit:
    ret
 
 
@@ -346,7 +360,9 @@ sys_read_flush:
    push  r25
 
    ldi   r25,0
+   cli
    sts   kbuf_input_len_,r25
+   sei
    sts   kbuf_input_ready_,r25
 
    pop   r25

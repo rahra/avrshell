@@ -29,22 +29,19 @@ static const char s_fl_[] PROGMEM = "fuse low = 0x";
 static const char s_fh_[] PROGMEM = "fuse high = 0x";
 static const char s_ef_[] PROGMEM = "extended fuse = 0x";
 
-static const char m_help0_[] PROGMEM =
+static const char m_help_[] PROGMEM =
    "in <io_reg> ............... read IO register\n"
    "out <io_reg> <byte> ....... write value to IO register\n"
    "cbi <io_reg> <bit> ........ clear bit (0-7) in IO register\n"
-   "sbi <io_reg> <bit> ........ set bit (0-7) in IO register\n";
-static const char m_help1_[] PROGMEM =
+   "sbi <io_reg> <bit> ........ set bit (0-7) in IO register\n"
    "lds <memaddr> ............. read byte from memory\n"
    "sts <memaddr> <byte> ...... write byte to memory\n"
    "dump [<memaddr> [<len>]] .. dump <len> bytes of RAM memory\n"
-   "pdump [<memaddr> [<len>]] . dump <len> bytes of program memory\n";
-static const char m_help2_[] PROGMEM =
+   "pdump [<memaddr> [<len>]] . dump <len> bytes of program memory\n"
    "edump [<memaddr> [<len>] .. dump <len> bytes of EEPROM memory\n"
    "ste <memaddr> <byte> ...... write byte to EEPROM memory\n"
    "cpu ....................... CPU info\n"
-   "uptime .................... show system uptime ticks.\n";
-static const char m_help3_[] PROGMEM =
+   "uptime .................... show system uptime ticks.\n"
    "run <pid> ................. run process <pid>.\n"
    "stop <pid> ................ stop process <pid>.\n"
    "new <address> ............. create new process with start routine at <address>.\n";
@@ -218,14 +215,24 @@ int8_t get_int_param0(char **cmd, int *parm)
 }
 
 
+void ser_pwrite(const char *buf, int len)
+{
+   uint8_t wlen;
+
+   while (len > 0)
+   {
+      wlen = len > 255 ? 255 : len;
+      wlen = sys_pwrite(buf, wlen);
+
+      buf += wlen;
+      len -= wlen;
+   }
+}
+
+
 void help(void)
 {
-   SYS_PWRITE(m_helo_);
-   println();
-   SYS_PWRITE(m_help0_);
-   SYS_PWRITE(m_help1_);
-   SYS_PWRITE(m_help2_);
-   SYS_PWRITE(m_help3_);
+   ser_pwrite(m_help_, sizeof(m_help_) - 1);
 }
 
 

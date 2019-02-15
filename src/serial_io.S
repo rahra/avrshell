@@ -313,27 +313,30 @@ sys_read:
    sei
    sts   UCSR0B,r24
  
+   lds   r25,kbuf_input_len_        ; check if data available
+   tst   r25
+   breq  .Lrd_exit
+
    ldi   ZL,lo8(kbuf_input_)
    ldi   ZH,hi8(kbuf_input_)
 
-   lds   r25,kbuf_input_len_
 .Lrd_loop:
    ld    r24,Z+
    st    Y+,r24
    dec   r25
    brne  .Lrd_loop
 
-   lds   r24,kbuf_input_len_
+.Lrd_exit:
+   lds   r24,kbuf_input_len_        ; get return value
 
    sts   kbuf_input_len_,r25
    sts   kbuf_input_ready_,r25
 
-   cli                              ; enable RXC interrupt
-   lds   r24,UCSR0B
-   ori   r24,_BV(RXCIE0)
+   lds   r25,UCSR0B
+   ori   r25,_BV(RXCIE0)
    sei
-   sts   UCSR0B,r24
- 
+   sts   UCSR0B,r25
+
    pop   ZH
    pop   ZL
    pop   YH

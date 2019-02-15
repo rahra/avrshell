@@ -267,7 +267,8 @@ int main(void)
    {
       SYS_PWRITE(m_prompt_);
       sys_read_flush();
-      rlen = sys_read(buf);
+      if (!(rlen = sys_read(buf)))
+         continue;
       cmd = buf;
       // skip leading spaces
       for (; *cmd == ' '; cmd++);

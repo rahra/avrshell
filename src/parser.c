@@ -169,6 +169,9 @@ int8_t lint_to_str(long int n, char *buf, int len)
 
    for (base = 1000000000; base > n; base /= 10);
 
+   if (!n)
+      *buf++ = '0';
+
    for (; base; base /= 10)
    {
       c = n / base;

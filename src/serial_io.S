@@ -138,8 +138,10 @@ sys_read:
    movw  r28,r24              ; move parameter to Y
 
 .Lrdtest:
+   cli
    lds   r16,UCSR0B
    andi  r16,~_BV(RXCIE0)     ; disable receiver interrupt
+   sei
    sts   UCSR0B,r16
 
 ;.Lrdtest:
@@ -163,8 +165,10 @@ sys_read:
    sts   kbuf_input_ready,r16
    ;sei   ; workaround
 
+   cli
    lds   r16,UCSR0B           ; enable receiver interrupt
    ori   r16,_BV(RXCIE0)
+   sei
    sts   UCSR0B,r16
 
    pop   r29
@@ -250,8 +254,11 @@ sys_write:
    movw  r28,r24        ; move parameter to Y
 
 .Lwrite_test_buf:
+   in    r18,_SFR_IO_ADDR(SREG)
+   cli
    lds   r17,UCSR0B     ; disable USART Data Register Empty Interrupt
    andi  r17,~_BV(UDRIE0)
+   out   _SFR_IO_ADDR(SREG),r18
    sts   UCSR0B,r17
 
    lds   r17,kbuf_output_end
@@ -280,9 +287,12 @@ sys_write:
    brne  .Lwrite_copy
 
    sts   kbuf_output_end,r17   ; store new end address of new buffer
-                        
+
+   in    r18,_SFR_IO_ADDR(SREG)
+   cli
    lds   r17,UCSR0B     ; enable USART Data Register Empty Interrupt
    ori   r17,_BV(UDRIE0)
+   out   _SFR_IO_ADDR(SREG),r18
    sts   UCSR0B,r17
 
    pop   r31
@@ -300,8 +310,10 @@ sys_write:
    ret
 
 .Lwrite_block:
+   cli
    lds   r17,UCSR0B           ; enable interrupt
    ori   r17,_BV(UDRIE0)
+   sei
    sts   UCSR0B,r17
    ;sleep
    rjmp  .Lwrite_test_buf

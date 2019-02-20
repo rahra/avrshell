@@ -54,6 +54,9 @@ t0_handler:
    push r16
    in    r16,_SFR_IO_ADDR(SREG)
    rcall t0_count                ; increase uptime counter
+
+;   rcall validate_events         ; validate system events for every process
+
    out   _SFR_IO_ADDR(SREG),r16
    pop   r16
 
@@ -62,8 +65,6 @@ scheduler:
    push  r16
    in    r16,_SFR_IO_ADDR(SREG)
    push  r16
-
-   rcall validate_events         ; validate system events for every process
 
    rcall check_ctx_switch        ; determine next process to schedule
    cpi   r16,NEXT_PROC_SAME      ; dont switch if same process

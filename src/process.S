@@ -348,6 +348,10 @@ validate_events:
    mov   r24,r26
    com   r24
 .Lve_loop:
+   ldd   r25,Y+PSTRUCT_STATE_OFF
+   cpi   r25,PSTATE_WAIT
+   brne  .Lve_next
+
    ldd   r25,Y+PSTRUCT_EVENT_OFF
    and   r25,r26                    ; test if system events are in event mask of process
    breq  .Lve_next
@@ -361,9 +365,20 @@ validate_events:
 
 .Lve_next:
    dec   r27
+   adiw  YL,PROC_LIST_ENTRY
    brne  .Lve_loop
 
    popm  24,29
+   ret
+
+
+.global sys_set_event
+sys_set_event:
+   push  r16
+   lds   r16,.Lsys_event_
+   or    r16,r24
+   sts   .Lsys_event_,r16
+   pop   r16
    ret
 
 

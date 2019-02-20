@@ -11,7 +11,7 @@
 // process states
 #define PSTATE_UNUSED 0
 #define PSTATE_RUN 1
-#define PSTATE_SLEEP 2
+#define PSTATE_WAIT 2
 #define PSTATE_ZOMBIE 3
 #define PSTATE_NEW 4
 #define PSTATE_STOP 5
@@ -24,6 +24,7 @@
 #define NEXT_PROC_SAME 0xfe
 
 #define EV_UART_INPUT 1
+#define EV_UART_OUTPUT 2
 
 #ifndef __ASSEMBLER__
 
@@ -36,6 +37,7 @@ pid_t new_proc(void (*)(void));
 void run_proc(pid_t);
 void stop_proc(pid_t);
 void sys_schedule();
+void sys_set_event(uint8_t);
 
 #endif
 

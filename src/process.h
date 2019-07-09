@@ -32,12 +32,20 @@
 
 typedef int8_t pid_t;
 
+struct plist_entry
+{
+   char *sp;
+   int8_t pstate;
+   int8_t event;
+};
+
 pid_t start_proc(void (*)(void));
 pid_t new_proc(void (*)(void));
 void run_proc(pid_t);
 void stop_proc(pid_t);
 void sys_schedule();
 void sys_set_event(uint8_t);
+struct plist_entry *get_proc_list(void);
 
 #endif
 

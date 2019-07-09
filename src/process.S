@@ -382,6 +382,13 @@ sys_set_event:
    ret
 
 
+.global get_proc_list
+get_proc_list:
+   ldi   r24,lo8(proc_list)
+   ldi   r25,hi8(proc_list)
+   ret
+
+
 .section .data
 ; currently active process
 current_proc:

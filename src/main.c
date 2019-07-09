@@ -44,7 +44,8 @@ static const char m_help_[] PROGMEM =
    "uptime .................... show system uptime ticks.\n"
    "run <pid> ................. run process <pid>.\n"
    "stop <pid> ................ stop process <pid>.\n"
-   "new <address> ............. create new process with start routine at <address>.\n";
+   "new <address> ............. create new process with start routine at <address>.\n"
+   "ps ........................ show process list.\n";
 
 
 void println(void)
@@ -250,6 +251,32 @@ void print_fuse(int addr, const char *str)
 }
 
 
+void ps(void)
+{
+   struct plist_entry *pe;
+   char buf[4];
+   int i;
+
+   pe = get_proc_list();
+   for (i = 0; i < MAX_PROCS; i++, pe++)
+   {
+      if (pe->pstate)
+      {
+         lint_to_str(i, buf, sizeof(buf));
+         sys_write(buf, strlen(buf));
+         sys_send(' ');
+         sys_send('0');
+         sys_send('x');
+         write_ptr(pe->sp);
+         sys_send(' ');
+         lint_to_str(pe->pstate, buf, sizeof(buf));
+         sys_write(buf, strlen(buf));
+         println();
+      }
+   }
+}
+
+
 int main(void)
 {
    unsigned char rlen;
@@ -270,6 +297,7 @@ int main(void)
       if (!(rlen = sys_read(buf)))
          continue;
       cmd = buf;
+      buf[rlen] = '\0';
       // skip leading spaces
       for (; *cmd == ' '; cmd++);
       if (*cmd == '#' || is_eos(*cmd))
@@ -426,6 +454,10 @@ int main(void)
             println();
             break;
  
+          case C_PS:
+            ps();
+            break;
+
          case C_HELP:
             help();
             break;

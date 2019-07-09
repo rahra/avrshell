@@ -21,10 +21,11 @@ static const char c_uptime_[] PROGMEM = "uptime";
 static const char c_run_[] PROGMEM = "run";
 static const char c_stop_[] PROGMEM = "stop";
 static const char c_new_[] PROGMEM = "new";
+static const char c_ps_[] PROGMEM = "ps";
 
 static const char * const cmd_[] __attribute__((__progmem__)) = {c_in_, c_out_,
    c_dump_, c_pdump_, c_sbi_, c_cbi_, c_lds_, c_sts_, c_help_, c_edump_,
-   c_ste_, c_cpu_, c_uptime_, c_run_, c_stop_, c_new_};
+   c_ste_, c_cpu_, c_uptime_, c_run_, c_stop_, c_new_, c_ps_};
 
 
 int strlen(const char *s)

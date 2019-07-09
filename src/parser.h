@@ -22,7 +22,7 @@ int strlen(const char *s);
 
 
 enum {C_IN, C_OUT, C_DUMP, C_PDUMP, C_SBI, C_CBI, C_LDS, C_STS, C_HELP,
-   C_EDUMP, C_STE, C_CPU, C_UPTIME, C_RUN, C_STOP, C_NEW};
+   C_EDUMP, C_STE, C_CPU, C_UPTIME, C_RUN, C_STOP, C_NEW, C_PS};
 
 #endif
 

@@ -66,8 +66,8 @@ serial_rx_handler:
 
    cpi   r24,8                      ; check if backspace
    breq  .Lsrx_bs
-   cpi   r24,'\r'
-   breq  .Lsrx_ready
+;   cpi   r24,'\r'  ; commented out because it was translated above
+;   breq  .Lsrx_ready
    cpi   r24,'\n'
    breq  .Lsrx_ready
 
@@ -296,8 +296,14 @@ serial_tx_wait:
    ret
 
 
+; Copy data from kernel serial input buffer to user buffer. The buffer will not
+; be \0-terminated!
+; @param r25:r24 pointer to user buffer
+; @param r22 size of user buffer
+; @return r24 number of bytes copied to buffer
 .global sys_read
 sys_read:
+   push  r23
    push  r25
    push  YL
    push  YH
@@ -305,6 +311,7 @@ sys_read:
    push  ZH
 
    movw  YL,r24
+   mov   r23,r22
 
    rcall serial_rx_wait
 
@@ -317,6 +324,9 @@ sys_read:
    tst   r25
    breq  .Lrd_exit
 
+   tst   r22                        ; check if bufsize != 0
+   breq  .Lrd_exit
+
    ldi   ZL,lo8(kbuf_input_)
    ldi   ZH,hi8(kbuf_input_)
 
@@ -324,13 +334,23 @@ sys_read:
    ld    r24,Z+
    st    Y+,r24
    dec   r25
+   brne  .Lrd_loop2
+   dec   r22
+   rjmp  .Lrd_exit
+
+.Lrd_loop2:
+   dec   r22
    brne  .Lrd_loop
 
 .Lrd_exit:
-   lds   r24,kbuf_input_len_        ; get return value
+   sub   r23,r22                    ; calc number of bytes copied
+   mov   r24,r23                    ; and set return value
 
    sts   kbuf_input_len_,r25
    sts   kbuf_input_ready_,r25
+
+   cpse  r25,r1                     ; test if all bytes where retrieved from kbuffer
+   rcall .Lrd_mmov
 
    lds   r25,UCSR0B
    ori   r25,_BV(RXCIE0)
@@ -342,6 +362,17 @@ sys_read:
    pop   YH
    pop   YL
    pop   r25
+   pop   r23
+   ret
+
+.Lrd_mmov:
+   ldi   YL,lo8(kbuf_input_)
+   ldi   YH,hi8(kbuf_input_)
+.Lrd_loop3:
+   ld    r23,Z+
+   st    Y+,r23
+   dec   r25
+   brne  .Lrd_loop3
    ret
 
 

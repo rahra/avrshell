@@ -280,7 +280,7 @@ void ps(void)
 int main(void)
 {
    unsigned char rlen;
-   static char buf[256], *cmd;   //FIXME: moved to main memory, buffer too large on stack
+   static char buf[32], *cmd;   //FIXME: moved to main memory, buffer too large on stack
    int addr, off;
    int val;
    int8_t cmdnr, byte, err;
@@ -294,7 +294,7 @@ int main(void)
    {
       SYS_PWRITE(m_prompt_);
       sys_read_flush();
-      if (!(rlen = sys_read(buf)))
+      if (!(rlen = sys_read(buf, sizeof(buf))))
          continue;
       cmd = buf;
       buf[rlen] = '\0';

@@ -294,7 +294,7 @@ int main(void)
    {
       SYS_PWRITE(m_prompt_);
       sys_read_flush();
-      if (!(rlen = sys_read(buf, sizeof(buf))))
+      if (!(rlen = sys_read(buf, sizeof(buf) - 1)))
          continue;
       cmd = buf;
       buf[rlen] = '\0';

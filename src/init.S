@@ -63,17 +63,17 @@
 
 ; timer 0 overflow
 .org 0x40
-   rjmp  t0_handler
+   jmp   t0_handler
 
 .org 0x44
    rcall default_handler
 
 ; serial input buffer vector
 .org 0x48
-   rjmp  serial_rx_handler
+   jmp   serial_rx_handler
 
 .org 0x4c
-   rjmp  serial_tx_handler
+   jmp   serial_tx_handler
 
 .org 0x50
    rcall default_handler

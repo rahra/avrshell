@@ -36,6 +36,7 @@ BAUD = 115200
 AS	= avr-as
 CC = avr-gcc
 LD = avr-ld
+AR = avr-ar
 OBJDUMP = avr-objdump
 CPP = avr-cpp
 COMPRESSOR = xz
@@ -50,7 +51,10 @@ LDLIBS = -lgcc
 AVRDUDE = avrdude
 AVRDUDE_CONF = /etc/avrdude.conf
 
-all: $(TARGET).hex
+all: $(TARGET).hex lib$(TARGET).a
+
+lib$(TARGET).a: $(OBJECTS)
+	$(AR) rcs lib$(TARGET).a $(OBJECTS)
 
 $(TARGET).elf: $(OBJECTS)
 	$(CC)	$(LDFLAGS) $(OBJECTS) -o $@ $(LDLIBS)
@@ -65,7 +69,7 @@ dump: $(TARGET).elf
 	$(OBJDUMP) -d $(TARGET).elf
 
 clean:
-	rm -f $(TARGET).elf $(TARGET).hex $(OBJECTS) *~
+	rm -f $(TARGET).elf $(TARGET).hex lib$(TARGET).a $(OBJECTS) *~
 
 $(TARGET).tar:
 	if test -d $(TARGET) ; then rm -rf $(TARGET) ; fi

@@ -21,6 +21,8 @@ init_procs:
    sts   current_proc,r16
    sts   .Lsys_event_,r16  ; clear events
 
+   out   _SFR_IO_ADDR(GPIOR0),r16; clear GPIOR0 which is used for kernel semaphores
+
    ldi   YL,lo8(proc_list)       ; zero process list
    ldi   YH,hi8(proc_list)
    ldi   r17,MAX_PROCS * PROC_LIST_ENTRY
@@ -308,9 +310,11 @@ exit_proc:
    std   Z+PSTRUCT_STATE_OFF,r16
 
 .global sys_schedule
+.global sys_schedule0
 sys_schedule:
    cli                           ; clear interrupts and immediately force context switch
-   rjmp  scheduler
+sys_schedule0:
+   rjmp  scheduler               ; jump to scheduler
 
 
 .global sys_sleep
@@ -336,49 +340,122 @@ idle:
    rjmp  .Lidle_loop
 
 
-; function to validate system events
-.global validate_events
-validate_events:
-   pushm 24,29
+; create bitmask from number, e.g. 0x03 -> 0x08
+; @param r24 number
+; @return r24 bitmask
+mk_bitmask:
+   push  r25
 
-   ldi   YL,lo8(proc_list)
-   ldi   YH,hi8(proc_list)
-   ldi   r27,MAX_PROCS
-   lds   r26,.Lsys_event_
-   mov   r24,r26
-   com   r24
-.Lve_loop:
-   ldd   r25,Y+PSTRUCT_STATE_OFF
-   cpi   r25,PSTATE_WAIT
-   brne  .Lve_next
+   ldi   r25,1          ; create bitmask from number
+   tst   r24
+.Lsw_loop:
+   breq  .Lmkb_exit
+   lsl   r25
+   dec   r24
+   rjmp  .Lsw_loop
 
-   ldd   r25,Y+PSTRUCT_EVENT_OFF
-   and   r25,r26                    ; test if system events are in event mask of process
-   breq  .Lve_next
-
-   ldd   r25,Y+PSTRUCT_EVENT_OFF
-   and   r25,r24                    ; clear event bits in process
-   std   Y+PSTRUCT_EVENT_OFF,r25
-
-   ldi   r25,PSTATE_RUN             ; and set process state to RUN
-   std   Y+PSTRUCT_STATE_OFF,r25
-
-.Lve_next:
-   dec   r27
-   adiw  YL,PROC_LIST_ENTRY
-   brne  .Lve_loop
-
-   popm  24,29
+.Lmkb_exit:
+   mov   r24,r25
+   pop   r25
    ret
 
 
-.global sys_set_event
-sys_set_event:
-   push  r16
-   lds   r16,.Lsys_event_
-   or    r16,r24
-   sts   .Lsys_event_,r16
+; wait for specific system semaphore to become ready (=1)
+; @param r24 number of semaphore (currently 0-7)
+.global sys_sem_wait
+sys_sem_wait:
+   push  r22
+   push  r25
+
+   andi  r24,7          ; make sure that param is between 0 and 7
+   mov   r22,r24        ; safe semaphore number
+   rcall mk_bitmask
+   mov   r25,r24
+
+.Lsw_sem_check:
+   cli
+   in    r24,_SFR_IO_ADDR(GPIOR0)     ; test if bit is set
+   and   r24,r25
+   brne  .Lsw_sem_ready ; if 1, semaphore is ready
+
+   push  r16            ; otherwise set current process into wait and re-schedule
+   push  ZL
+   push  ZH
+
+   lds   r16,current_proc
+   rcall proc_list_address
+
+   ldi   r16,PSTATE_WAIT
+   std   Z+PSTRUCT_STATE_OFF,r16
+   std   Z+PSTRUCT_EVENT_OFF,r22 ; store semaphore number
+
+   pop   ZH
+   pop   ZL
    pop   r16
+
+   rcall sys_schedule0
+   rjmp  .Lsw_sem_check
+
+.Lsw_sem_ready:
+   in    r24,_SFR_IO_ADDR(GPIOR0)     ; clear semaphore bit
+   com   r25
+   and   r24,r25
+   out   _SFR_IO_ADDR(GPIOR0),r24
+
+   sei
+   pop   r25
+   pop   r22
+
+   ret
+
+
+; raise semaphore and unlock waiting process
+; @param r24 number of semaphore (0-7)
+.global sys_sem_post
+sys_sem_post:
+   push  r16
+   push  r22
+   push  ZL
+   push  ZH
+
+   andi  r24,7          ; make sure that param is between 0 and 7
+   mov   r16,r24        ; temporary safe semaphore number
+   rcall mk_bitmask
+
+   in    r22,_SFR_IO_ADDR(SREG)  ; save SREG (because of I)
+   push  r22
+   cli                           ; and disable interrupts
+
+   in    r22,_SFR_IO_ADDR(GPIOR0); set semphore bit
+   or    r22,r24
+   out   _SFR_IO_ADDR(GPIOR0),r22
+
+   mov   r24,r16
+
+   lds   r16,current_proc
+.Lsp_loop:
+   ldi   r22,PSTATE_WAIT         ; find next process with state WAIT
+   rcall get_next_proc
+   cpi   r16,NEXT_PROC_UNAVAIL   ; exit if there is none
+   breq  .Lsp_exit
+
+   rcall proc_list_address       ; check if process is waiting for this semaphore
+   ldd   r22,Z+PSTRUCT_EVENT_OFF
+   cp    r22,r24
+   brne  .Lsp_loop               ; if not, continue loop
+
+   ldi   r22,PSTATE_RUN          ; state state of process to RUN
+   std   Z+PSTRUCT_STATE_OFF,r22
+
+.Lsp_exit:
+   pop   r22
+   out   _SFR_IO_ADDR(SREG),r22
+
+   pop   ZH
+   pop   ZL
+   pop   r22
+   pop   r16
+
    ret
 
 

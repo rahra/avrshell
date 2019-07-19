@@ -7,7 +7,11 @@
 
 .file "serial_io.S"
 
+#undef WITH_SEM
+
 #include <avr/io.h>
+
+#include "process.h"
 
 ; baud rate for 16MHz Arduino
 ; 207 = 9600, 103 = 19200, 16 = 115200
@@ -37,7 +41,9 @@ init_serial:
    clr   r16
    sts   kbuf_output_len_,r16
    sts   kbuf_input_len_,r16
+#ifndef WITH_SEM
    sts   kbuf_input_ready_,r16
+#endif
 
    pop   r16
    ret
@@ -109,8 +115,13 @@ serial_rx_handler:
    rjmp  .Lsrx_exit
 
 .Lsrx_ready:
+#ifdef WITH_SEM
+   ldi   r24,SYS_SEM_READ
+   rcall sys_sem_post
+#else
    ldi   r24,1
    sts   kbuf_input_ready_,r24
+#endif
    rjmp  .Lsrx_exit
 
 
@@ -347,7 +358,9 @@ sys_read:
    mov   r24,r23                    ; and set return value
 
    sts   kbuf_input_len_,r25
+#ifndef WITH_SEM
    sts   kbuf_input_ready_,r25
+#endif
 
    cpse  r25,r1                     ; test if all bytes where retrieved from kbuffer
    rcall .Lrd_mmov                  ; otherwise move bytes to the beginning
@@ -384,6 +397,11 @@ sys_read:
 ; wait until input buffer is ready (meaning one of \n\r was received)
 ; the interrupts are globally disable on return
 serial_rx_wait:
+#ifdef WITH_SEM
+   ldi   r24,SYS_SEM_READ
+   rcall sys_sem_wait
+   ret
+#else
    cli
    lds   r24,kbuf_input_ready_
    tst   r24
@@ -394,6 +412,7 @@ serial_rx_wait:
 
 .Lsrxw_exit:
    ret
+#endif
 
 
 .global sys_read_flush
@@ -404,7 +423,9 @@ sys_read_flush:
    cli
    sts   kbuf_input_len_,r25
    sei
+#ifndef WITH_SEM
    sts   kbuf_input_ready_,r25
+#endif
 
    pop   r25
    ret
@@ -416,7 +437,7 @@ sys_read_flush:
 .global sys_peek_serial
 sys_peek_serial:
    cli
-   lds   r24,kbuf_input_ready_   ; check if data is in buffer
+   lds   r24,kbuf_input_len_     ; check if data is in buffer
    tst   r24
    brne  .Lsp_get
    rcall sys_schedule            ; wait if not (call scheduler)
@@ -445,8 +466,10 @@ kbuf_input_:
 .space KBUF_INPUT_SIZE
 kbuf_input_len_:
 .space 1
+#ifndef WITH_SEM
 kbuf_input_ready_:
 .space 1
+#endif
 kbuf_output_:
 .space KBUF_OUTPUT_SIZE
 kbuf_output_len_:

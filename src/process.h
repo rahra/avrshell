@@ -23,8 +23,7 @@
 #define NEXT_PROC_UNAVAIL 0xff
 #define NEXT_PROC_SAME 0xfe
 
-#define EV_UART_INPUT 1
-#define EV_UART_OUTPUT 2
+#define SYS_SEM_READ 0
 
 #ifndef __ASSEMBLER__
 

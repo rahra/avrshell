@@ -6,5 +6,8 @@ all:
 clean:
 	make -C src TARGET=$(TARGET) clean
 
+upload:
+	make -C src TARGET=$(TARGET) upload
+
 .PHONY: clean
 

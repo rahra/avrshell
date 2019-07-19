@@ -104,9 +104,9 @@
    ldi   r16,hi8(RAMEND)
    out   _SFR_IO_ADDR(SPH),r16
 
-   rcall init_procs              ; init thread structures
-   rcall init_timer              ; init time slice timer
-   rcall init_int_vectors        ; init interrupt memory vectors
+   call  init_procs              ; init thread structures
+   call  init_timer              ; init time slice timer
+   call  init_int_vectors        ; init interrupt memory vectors
 
    clr   r1                      ; put address 0x0000 (reset vector) on stack
    push  r1                      ; ...in case main returns...

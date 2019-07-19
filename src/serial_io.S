@@ -350,11 +350,11 @@ sys_read:
    sts   kbuf_input_ready_,r25
 
    cpse  r25,r1                     ; test if all bytes where retrieved from kbuffer
-   rcall .Lrd_mmov
+   rcall .Lrd_mmov                  ; otherwise move bytes to the beginning
 
    lds   r25,UCSR0B
    ori   r25,_BV(RXCIE0)
-   sei
+   ;sei  ; not necessary since interrupts are already globally enabled above
    sts   UCSR0B,r25
 
    pop   ZH
@@ -365,6 +365,11 @@ sys_read:
    pop   r23
    ret
 
+
+; move bytes in memory, blocks may overlap only if src > dst
+; @param Z source address
+; @param Y destination address
+; @param r25 number of bytes to move
 .Lrd_mmov:
    ldi   YL,lo8(kbuf_input_)
    ldi   YH,hi8(kbuf_input_)
@@ -376,6 +381,8 @@ sys_read:
    ret
 
 
+; wait until input buffer is ready (meaning one of \n\r was received)
+; the interrupts are globally disable on return
 serial_rx_wait:
    cli
    lds   r24,kbuf_input_ready_
@@ -400,6 +407,36 @@ sys_read_flush:
    sts   kbuf_input_ready_,r25
 
    pop   r25
+   ret
+
+
+; return last byte received from serial port. The character is not removed from
+; the input buffer, thus it does not interfere or disturb with sys_read(). The
+; function blocks if no bytes are available.
+.global sys_peek_serial
+sys_peek_serial:
+   cli
+   lds   r24,kbuf_input_ready_   ; check if data is in buffer
+   tst   r24
+   brne  .Lsp_get
+   rcall sys_schedule            ; wait if not (call scheduler)
+   rjmp  sys_peek_serial
+
+.Lsp_get:
+   push  YL
+   push  YH
+
+   ldi   YL,lo8(kbuf_input_)     ; get base address of buffer
+   ldi   YH,hi8(kbuf_input_)
+   dec   r24                     ; dec byte counter to get buffer index
+   add   YL,r24                  ; and add index to base address
+   clr   r24
+   adc   YH,r24
+   sei
+   ld    r24,Y                   ; get byte from buffer
+
+   pop   YH
+   pop   YL
    ret
 
 

@@ -78,6 +78,7 @@ $(TARGET).tar:
 	tar cf $(TARGET).tar $(TARGET)
 
 dist: $(TARGET).tar
+	if test -f $(TARGET).tar.xz ; then rm -f $(TARGET).tar.xz ; fi
 	$(COMPRESSOR) $(TARGET).tar
 
 minicom:

@@ -7,7 +7,7 @@
 
 .file "serial_io.S"
 
-#undef WITH_SEM
+#define WITH_SEM
 
 #include <avr/io.h>
 

@@ -361,6 +361,7 @@ mk_bitmask:
 
 
 ; wait for specific system semaphore to become ready (=1)
+; this function is though to be called from userland (not in interrupt)
 ; @param r24 number of semaphore (currently 0-7)
 .global sys_sem_wait
 sys_sem_wait:
@@ -368,7 +369,7 @@ sys_sem_wait:
    push  r25
 
    andi  r24,7          ; make sure that param is between 0 and 7
-   mov   r22,r24        ; safe semaphore number
+   mov   r22,r24        ; save semaphore number
    rcall mk_bitmask
    mov   r25,r24
 
@@ -410,6 +411,7 @@ sys_sem_wait:
 
 
 ; raise semaphore and unlock waiting process
+; this function may be called from within an interrupt or the userland (outside interrupt)
 ; @param r24 number of semaphore (0-7)
 .global sys_sem_post
 sys_sem_post:

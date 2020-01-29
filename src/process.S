@@ -416,6 +416,7 @@ sys_sem_wait:
 .global sys_sem_post
 sys_sem_post:
    push  r16
+   push  r17
    push  r22
    push  ZL
    push  ZH
@@ -435,12 +436,23 @@ sys_sem_post:
    mov   r24,r16
 
    lds   r16,current_proc
+   ldi   r17,NEXT_PROC_UNAVAIL
 .Lsp_loop:
    ldi   r22,PSTATE_WAIT         ; find next process with state WAIT
    rcall get_next_proc
    cpi   r16,NEXT_PROC_UNAVAIL   ; exit if there is none
    breq  .Lsp_exit
 
+   cpi   r17,NEXT_PROC_UNAVAIL   ; check if it is the first run of the loop
+   brne  .Lsp_plist
+   mov   r17,r16                 ; and save proc number to r17
+   rjmp  .Lsp_plist2
+
+.Lsp_plist:
+   cp    r16,r17                 ; check if process was already tested
+   breq  .Lsp_exit               ; and exit in case
+
+.Lsp_plist2:
    rcall proc_list_address       ; check if process is waiting for this semaphore
    ldd   r22,Z+PSTRUCT_EVENT_OFF
    cp    r22,r24
@@ -456,6 +468,7 @@ sys_sem_post:
    pop   ZH
    pop   ZL
    pop   r22
+   pop   r17
    pop   r16
 
    ret

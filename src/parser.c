@@ -1,3 +1,20 @@
+/* Copyright 2019-2020 Bernhard R. Fischer, 4096R/8E24F29D <bf@abenteuerland.at>
+ *
+ * This file is part of AVRshell.
+ *
+ * Smrender is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * Smrender is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with smrender. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <avr/io.h>
 
 #include "avrshell.h"
@@ -21,10 +38,11 @@ static const char c_uptime_[] PROGMEM = "uptime";
 static const char c_run_[] PROGMEM = "run";
 static const char c_stop_[] PROGMEM = "stop";
 static const char c_new_[] PROGMEM = "new";
+static const char c_ps_[] PROGMEM = "ps";
 
 static const char * const cmd_[] __attribute__((__progmem__)) = {c_in_, c_out_,
    c_dump_, c_pdump_, c_sbi_, c_cbi_, c_lds_, c_sts_, c_help_, c_edump_,
-   c_ste_, c_cpu_, c_uptime_, c_run_, c_stop_, c_new_};
+   c_ste_, c_cpu_, c_uptime_, c_run_, c_stop_, c_new_, c_ps_};
 
 
 int strlen(const char *s)
@@ -168,6 +186,9 @@ int8_t lint_to_str(long int n, char *buf, int len)
    }
 
    for (base = 1000000000; base > n; base /= 10);
+
+   if (!n)
+      *buf++ = '0';
 
    for (; base; base /= 10)
    {

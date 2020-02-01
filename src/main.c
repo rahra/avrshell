@@ -1,3 +1,20 @@
+/* Copyright 2019-2020 Bernhard R. Fischer, 4096R/8E24F29D <bf@abenteuerland.at>
+ *
+ * This file is part of AVRshell.
+ *
+ * Smrender is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * Smrender is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with smrender. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "serial_io.h"
 #include "timer.h"
 #include "progmem.h"
@@ -13,7 +30,7 @@
 #define MEM_PRG 1
 #define MEM_EEP 3
 
-static const char m_helo_[] PROGMEM = "AVR shell v0.3 (c) 2019 Bernhard Fischer, <bf@abenteuerland.at>";
+static const char m_helo_[] PROGMEM = "AVR shell v2.0 (c) 2019-2020 Bernhard Fischer, <bf@abenteuerland.at>";
 static const char m_prompt_[] __attribute__((__progmem__)) = "Arduino# ";
 static const char m_ok_[] __attribute__((__progmem__)) = "OK";
 static const char m_unk_[] PROGMEM = "*** unknown command";
@@ -29,25 +46,23 @@ static const char s_fl_[] PROGMEM = "fuse low = 0x";
 static const char s_fh_[] PROGMEM = "fuse high = 0x";
 static const char s_ef_[] PROGMEM = "extended fuse = 0x";
 
-static const char m_help0_[] PROGMEM =
+static const char m_help_[] PROGMEM =
    "in <io_reg> ............... read IO register\n"
    "out <io_reg> <byte> ....... write value to IO register\n"
    "cbi <io_reg> <bit> ........ clear bit (0-7) in IO register\n"
-   "sbi <io_reg> <bit> ........ set bit (0-7) in IO register\n";
-static const char m_help1_[] PROGMEM =
+   "sbi <io_reg> <bit> ........ set bit (0-7) in IO register\n"
    "lds <memaddr> ............. read byte from memory\n"
    "sts <memaddr> <byte> ...... write byte to memory\n"
    "dump [<memaddr> [<len>]] .. dump <len> bytes of RAM memory\n"
-   "pdump [<memaddr> [<len>]] . dump <len> bytes of program memory\n";
-static const char m_help2_[] PROGMEM =
+   "pdump [<memaddr> [<len>]] . dump <len> bytes of program memory\n"
    "edump [<memaddr> [<len>] .. dump <len> bytes of EEPROM memory\n"
    "ste <memaddr> <byte> ...... write byte to EEPROM memory\n"
    "cpu ....................... CPU info\n"
-   "uptime .................... show system uptime ticks.\n";
-static const char m_help3_[] PROGMEM =
+   "uptime .................... show system uptime ticks.\n"
    "run <pid> ................. run process <pid>.\n"
    "stop <pid> ................ stop process <pid>.\n"
-   "new <address> ............. create new process with start routine at <address>.\n";
+   "new <address> ............. create new process with start routine at <address>.\n"
+   "ps ........................ show process list.\n";
 
 
 void println(void)
@@ -218,14 +233,24 @@ int8_t get_int_param0(char **cmd, int *parm)
 }
 
 
+void ser_pwrite(const char *buf, int len)
+{
+   uint8_t wlen;
+
+   while (len > 0)
+   {
+      wlen = len > 255 ? 255 : len;
+      wlen = sys_pwrite(buf, wlen);
+
+      buf += wlen;
+      len -= wlen;
+   }
+}
+
+
 void help(void)
 {
-   SYS_PWRITE(m_helo_);
-   println();
-   SYS_PWRITE(m_help0_);
-   SYS_PWRITE(m_help1_);
-   SYS_PWRITE(m_help2_);
-   SYS_PWRITE(m_help3_);
+   ser_pwrite(m_help_, sizeof(m_help_) - 1);
 }
 
 
@@ -243,10 +268,36 @@ void print_fuse(int addr, const char *str)
 }
 
 
+void ps(void)
+{
+   struct plist_entry *pe;
+   char buf[4];
+   int i;
+
+   pe = get_proc_list();
+   for (i = 0; i < MAX_PROCS; i++, pe++)
+   {
+      if (pe->pstate)
+      {
+         lint_to_str(i, buf, sizeof(buf));
+         sys_write(buf, strlen(buf));
+         sys_send(' ');
+         sys_send('0');
+         sys_send('x');
+         write_ptr(pe->sp);
+         sys_send(' ');
+         lint_to_str(pe->pstate, buf, sizeof(buf));
+         sys_write(buf, strlen(buf));
+         println();
+      }
+   }
+}
+
+
 int main(void)
 {
    unsigned char rlen;
-   static char buf[256], *cmd;   //FIXME: moved to main memory, buffer too large on stack
+   static char buf[32], *cmd;   //FIXME: moved to main memory, buffer too large on stack
    int addr, off;
    int val;
    int8_t cmdnr, byte, err;
@@ -260,9 +311,10 @@ int main(void)
    {
       SYS_PWRITE(m_prompt_);
       sys_read_flush();
-      rlen = sys_read(buf);
-
+      if (!(rlen = sys_read(buf, sizeof(buf) - 1)))
+         continue;
       cmd = buf;
+      buf[rlen] = '\0';
       // skip leading spaces
       for (; *cmd == ' '; cmd++);
       if (*cmd == '#' || is_eos(*cmd))
@@ -419,6 +471,10 @@ int main(void)
             println();
             break;
  
+          case C_PS:
+            ps();
+            break;
+
          case C_HELP:
             help();
             break;

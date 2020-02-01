@@ -1,3 +1,20 @@
+/* Copyright 2019-2020 Bernhard R. Fischer, 4096R/8E24F29D <bf@abenteuerland.at>
+ *
+ * This file is part of AVRshell.
+ *
+ * Smrender is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * Smrender is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with smrender. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 /*! \file init.S
  * System initialization.
  * @author Bernhard R. Fischer, 4096R/8E24F29D bf@abenteuerland.at
@@ -63,17 +80,17 @@
 
 ; timer 0 overflow
 .org 0x40
-   rjmp  t0_handler
+   jmp   t0_handler
 
 .org 0x44
    rcall default_handler
 
 ; serial input buffer vector
 .org 0x48
-   rjmp  serial_rx_handler
+   jmp   serial_rx_handler
 
 .org 0x4c
-   rjmp  serial_tx_handler
+   jmp   serial_tx_handler
 
 .org 0x50
    rcall default_handler
@@ -104,16 +121,16 @@
    ldi   r16,hi8(RAMEND)
    out   _SFR_IO_ADDR(SPH),r16
 
-   rcall init_procs              ; init thread structures
-   rcall init_timer              ; init time slice timer
-   rcall init_int_vectors        ; init interrupt memory vectors
+   call  init_procs              ; init thread structures
+   call  init_timer              ; init time slice timer
+   call  init_int_vectors        ; init interrupt memory vectors
 
    clr   r1                      ; put address 0x0000 (reset vector) on stack
    push  r1                      ; ...in case main returns...
    push  r1                      ; ...and make sure that r1 contains 0
 
-   ldi   r16,pm_lo8(main)           ; start first process (main)
-   ldi   r17,pm_hi8(main)
+   ldi   r16,pm_lo8(idle)           ; start first process (main)
+   ldi   r17,pm_hi8(idle)
    push  r16
    push  r17
    reti

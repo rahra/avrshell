@@ -1,3 +1,20 @@
+/* Copyright 2019-2020 Bernhard R. Fischer, 4096R/8E24F29D <bf@abenteuerland.at>
+ *
+ * This file is part of AVRshell.
+ *
+ * Smrender is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * Smrender is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with smrender. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 /*! \file timer.S
  * This file contains all timer related functions. This is an uptime counter
  * and the context switching for the multi-tasking.
@@ -10,6 +27,8 @@
 .include "macro.i"
 
 #include <avr/io.h>
+
+#include "process.h"
 
 .section .text
 
@@ -31,8 +50,8 @@ init_timer:
    ldi   r16,1                   ; timer interrupt enable
    sts   TIMSK0,r16
 
-   ldi   XL,lo8(uptime)          ; init uptime to 0
-   ldi   XH,hi8(uptime)
+   ldi   XL,lo8(.Luptime_)          ; init uptime to 0
+   ldi   XH,hi8(.Luptime_)
 
    clr   r16
    st    X+,r16
@@ -48,6 +67,63 @@ init_timer:
  */
 .global t0_handler
 t0_handler:
+#if 1
+   push r16
+   in    r16,_SFR_IO_ADDR(SREG)
+   rcall t0_count                ; increase uptime counter
+
+;   rcall validate_events         ; validate system events for every process
+
+   out   _SFR_IO_ADDR(SREG),r16
+   pop   r16
+
+.global scheduler
+scheduler:
+   push  r16
+   in    r16,_SFR_IO_ADDR(SREG)
+   push  r16
+
+   rcall check_ctx_switch        ; determine next process to schedule
+   cpi   r16,NEXT_PROC_SAME      ; dont switch if same process
+   breq  .Lt0_exit
+   cpi   r16,NEXT_PROC_UNAVAIL   ; do idle
+   brne  .Lt0_prep_full
+   ldi   r16,0                   ; put pid of idle process into r16
+.Lt0_prep_full:
+   sts   .Lnext_proc_,r16
+   pop   r16                     ; restore registers
+   out   _SFR_IO_ADDR(SREG),r16
+   pop   r16
+
+   rjmp  .Lt0_fullsave           ; jump to full context switch
+
+.Lt0_exit:
+   pop   r16
+   out   _SFR_IO_ADDR(SREG),r16
+   pop   r16
+   reti
+
+.Lt0_fullsave:
+   pushm 0,31
+   in    r16,_SFR_IO_ADDR(SREG)
+   push  r16
+
+   ; copy SP to Y
+   in    YL,_SFR_IO_ADDR(SPL)
+   in    YH,_SFR_IO_ADDR(SPH)
+
+   lds   r16,.Lnext_proc_
+   rcall context_switch
+
+   ; copy new stack address in Y to SP
+   out   _SFR_IO_ADDR(SPL),YL
+   out   _SFR_IO_ADDR(SPH),YH
+
+   pop   r16
+   out   _SFR_IO_ADDR(SREG),r16
+   popm  0,31
+   reti
+#else
    ; save full context to (current) stack
    pushm 0,31
    in    r16,_SFR_IO_ADDR(SREG)
@@ -60,9 +136,14 @@ t0_handler:
    in    YL,_SFR_IO_ADDR(SPL)
    in    YH,_SFR_IO_ADDR(SPH)
 
-   ; do context switch
+   ; determine next process to schedule
+   rcall check_ctx_switch
+   cpi   r16,NEXT_PROC_SAME
+   breq  .Lt0_noswitch
+   cpi   r16,NEXT_PROC_UNAVAIL
+   breq  .Lt0_noswitch
    rcall context_switch
-
+.Lt0_noswitch:
    ; copy new stack address in Y to SP
    out   _SFR_IO_ADDR(SPL),YL
    out   _SFR_IO_ADDR(SPH),YH
@@ -72,33 +153,31 @@ t0_handler:
    out   _SFR_IO_ADDR(SREG),r16
    popm  0,31
    reti
-
+#endif
 
 /*! This function increases to system uptime by 1.
  */
 t0_count:
-   ; load address of uptime variable to X
-   ldi   XL,lo8(uptime)
-   ldi   XH,hi8(uptime)
+   pushm 26,29
 
-   ; get current uptime from memory
-   ld    r28,X+
-   ld    r29,X+
-   ld    r30,X+
-   ld    r31,X+
+   ldi   YL,lo8(.Luptime_)    ; load address of uptime variable to Y
+   ldi   YH,hi8(.Luptime_)
 
-   ; increase by 1
-   clr   r16
-   adiw  r28,1
-   adc   r30,r16
-   adc   r31,r16
+   ld    r26,Y             ; get lower 16 bit
+   ldd   r27,Y+1
+   adiw  r26,1             ; add 1
+   st    Y+,r26            ; write back to mem
+   st    Y+,r27
+   brcc  .Lt0c_exit
 
-   ; write uptime back to memory
-   st    -X,r31
-   st    -X,r30
-   st    -X,r29
-   st    -X,r28
+   ld    r26,Y             ; get higher 16 bit
+   ldd   r27,Y+1
+   adiw  r26,1             ; add 1
+   st    Y+,r26            ; write back to mem
+   st    Y+,r27
 
+.Lt0c_exit:
+   popm  26,29
    ret
 
 
@@ -108,8 +187,8 @@ t0_count:
  */
 .global get_uptime
 get_uptime:
-   ldi   XL,lo8(uptime)
-   ldi   XH,hi8(uptime)
+   ldi   XL,lo8(.Luptime_)
+   ldi   XH,hi8(.Luptime_)
 
    cli
    ld    r22,X+
@@ -122,6 +201,8 @@ get_uptime:
 
 .section .data
 ; 32 bit uptime counter
-uptime:
+.Luptime_:
 .space 4
+.Lnext_proc_:
+.space 1
 

@@ -1,3 +1,20 @@
+/* Copyright 2019-2020 Bernhard R. Fischer, 4096R/8E24F29D <bf@abenteuerland.at>
+ *
+ * This file is part of AVRshell.
+ *
+ * Smrender is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * Smrender is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with smrender. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 /*! \file process.S
  * This file contains the routines for the process management.
  *
@@ -5,6 +22,8 @@
  */
 
 .file "process.S"
+
+.include "macro.i"
 
 #include <avr/io.h>
 
@@ -17,6 +36,9 @@
 init_procs:
    clr   r16               ; Set the current PID to 0.
    sts   current_proc,r16
+   sts   .Lsys_event_,r16  ; clear events
+
+   out   _SFR_IO_ADDR(GPIOR0),r16; clear GPIOR0 which is used for kernel semaphores
 
    ldi   YL,lo8(proc_list)       ; zero process list
    ldi   YH,hi8(proc_list)
@@ -33,12 +55,36 @@ init_procs:
    ret
 
 
+; check if context switch is necessary
+; @return returns in r16 the number of the new process to switch to, 0 if it should
+; not switch, and -1 if no process available (i.e. all are waiting)
+.global check_ctx_switch
+check_ctx_switch:
+   push  r22
+
+   ; determine next process to schedule
+   lds   r16,current_proc
+   ldi   r22,PSTATE_RUN
+   rcall get_next_proc
+   cpi   r16,NEXT_PROC_UNAVAIL   ; test if no process is available
+   breq  .Lccs_exit              ; exit in case
+   lds   r22,current_proc
+   cp    r16,r22                 ; test if no switch necessary (i.e. same process)
+   brne  .Lccs_exit              ; exit if different process
+   ldi   r16,NEXT_PROC_SAME      ; return 0 meaning no switch
+.Lccs_exit:
+   pop   r22
+   ret
+
+
 ; Function saves stack pointer and returns new stack pointer
+; @param r16 pid to switch to
 ; @param stack pointer to save in Y
 ; @return new stack pointer returned in Y
 
 .global context_switch
 context_switch:
+   mov   r24,r16
    lds   r16,current_proc
    rcall proc_list_address
 
@@ -47,8 +93,7 @@ context_switch:
    st    Z,YH
 
    ; determine next process to schedule
-   ldi   r22,PSTATE_RUN
-   rcall get_next_proc
+   mov   r16,r24
    sts   current_proc,r16
 
    ; calculate process list address of new process
@@ -65,6 +110,7 @@ context_switch:
 ; @return Z contains address of proc_list entry
 proc_list_address:
    push  r0
+   push  r1
    push  r17
 
    ; calculate process list offset:
@@ -81,6 +127,7 @@ proc_list_address:
    clr   r1
    
    pop   r17
+   pop   r1
    pop   r0
    ret
 
@@ -89,12 +136,14 @@ proc_list_address:
 ; This actually is the (most simple round robin) scheduler ;)
 ; @param r16 current process
 ; @param r22 process state to look for
-; @return r16 number of next process
+; @return r16 number of next process or -1 if no process available
 get_next_proc:
    push  r17
+   push  r18
    push  ZL
    push  ZH
 
+   mov   r18,r16
 .Lgnpinc:
    ; increase current PID
    inc   r16
@@ -105,13 +154,16 @@ get_next_proc:
 .Lgnpstate:
    rcall proc_list_address
    ldd   r17,Z+PSTRUCT_STATE_OFF ; get process state
-   cp    r17,r22
+   cp    r17,r22           ; check if we found a process in the state we look for
    breq  .Lgnpexit
-   rjmp  .Lgnpinc
+   cp    r16,r18           ; check if we found the same process again which means the loop restarts
+   brne  .Lgnpinc          ; if not, continue loop
 
+   ldi   r16,NEXT_PROC_UNAVAIL   ; no process available
 .Lgnpexit:
    pop   ZH
    pop   ZL
+   pop   r18
    pop   r17
    ret
 
@@ -135,6 +187,8 @@ new_proc:
    clr   r16
    ldi   r22,PSTATE_UNUSED
    rcall get_next_proc
+   cpi   r16,NEXT_PROC_UNAVAIL
+   breq  .Lnp_noslot
    mov   r22,r16
    rcall stack_address
 
@@ -167,6 +221,7 @@ new_proc:
    ldi   r16,PSTATE_NEW    ; set process state to RUN
    st    Z,r16
 
+.Lnp_exit:
    ; enable interrupts again
    sei
 
@@ -180,6 +235,10 @@ new_proc:
    pop   r16
 
    ret
+
+.Lnp_noslot:
+   mov   r22,r16
+   rjmp  .Lnp_exit
 
 
 ; Change state of process.
@@ -243,6 +302,7 @@ start_proc:
 ; @return Y address of stack
 stack_address:
    push  r0
+   push  r1
 
    mov   r0,r16
    ldi   r16,STACK_SIZE
@@ -254,6 +314,7 @@ stack_address:
    sbc   YH,r1
    clr   r1
 
+   pop   r1
    pop   r0
    ret
 
@@ -266,8 +327,12 @@ exit_proc:
    ldi   r16,PSTATE_ZOMBIE       ; set process state to ZOMBIE
    std   Z+PSTRUCT_STATE_OFF,r16
 
+.global sys_schedule
+.global sys_schedule0
+sys_schedule:
    cli                           ; clear interrupts and immediately force context switch
-   rjmp  t0_handler
+sys_schedule0:
+   rjmp  scheduler               ; jump to scheduler
 
 
 .global sys_sleep
@@ -276,9 +341,169 @@ sys_sleep:
    ret
 
 
+; idle process
+.global idle
+idle:
+   ldi   YL,lo8(proc_list)
+   ldi   YH,hi8(proc_list)
+   ldi   r24,PSTATE_IDLE
+   std   Y+PSTRUCT_STATE_OFF,r24
+
+   ldi   r24,pm_lo8(main)
+   ldi   r25,pm_hi8(main)
+   rcall start_proc
+
+.Lidle_loop:
+   sleep
+   rjmp  .Lidle_loop
+
+
+; create bitmask from number, e.g. 0x03 -> 0x08
+; @param r24 number
+; @return r24 bitmask
+mk_bitmask:
+   push  r25
+
+   ldi   r25,1          ; create bitmask from number
+   tst   r24
+.Lsw_loop:
+   breq  .Lmkb_exit
+   lsl   r25
+   dec   r24
+   rjmp  .Lsw_loop
+
+.Lmkb_exit:
+   mov   r24,r25
+   pop   r25
+   ret
+
+
+; wait for specific system semaphore to become ready (=1)
+; this function is though to be called from userland (not in interrupt)
+; @param r24 number of semaphore (currently 0-7)
+.global sys_sem_wait
+sys_sem_wait:
+   push  r22
+   push  r25
+
+   andi  r24,7          ; make sure that param is between 0 and 7
+   mov   r22,r24        ; save semaphore number
+   rcall mk_bitmask
+   mov   r25,r24
+
+.Lsw_sem_check:
+   cli
+   in    r24,_SFR_IO_ADDR(GPIOR0)     ; test if bit is set
+   and   r24,r25
+   brne  .Lsw_sem_ready ; if 1, semaphore is ready
+
+   push  r16            ; otherwise set current process into wait and re-schedule
+   push  ZL
+   push  ZH
+
+   lds   r16,current_proc
+   rcall proc_list_address
+
+   ldi   r16,PSTATE_WAIT
+   std   Z+PSTRUCT_STATE_OFF,r16
+   std   Z+PSTRUCT_EVENT_OFF,r22 ; store semaphore number
+
+   pop   ZH
+   pop   ZL
+   pop   r16
+
+   rcall sys_schedule0
+   rjmp  .Lsw_sem_check
+
+.Lsw_sem_ready:
+   in    r24,_SFR_IO_ADDR(GPIOR0)     ; clear semaphore bit
+   com   r25
+   and   r24,r25
+   out   _SFR_IO_ADDR(GPIOR0),r24
+
+   sei
+   pop   r25
+   pop   r22
+
+   ret
+
+
+; raise semaphore and unlock waiting process
+; this function may be called from within an interrupt or the userland (outside interrupt)
+; @param r24 number of semaphore (0-7)
+.global sys_sem_post
+sys_sem_post:
+   push  r16
+   push  r17
+   push  r22
+   push  ZL
+   push  ZH
+
+   andi  r24,7          ; make sure that param is between 0 and 7
+   mov   r16,r24        ; temporary safe semaphore number
+   rcall mk_bitmask
+
+   in    r22,_SFR_IO_ADDR(SREG)  ; save SREG (because of I)
+   push  r22
+   cli                           ; and disable interrupts
+
+   in    r22,_SFR_IO_ADDR(GPIOR0); set semphore bit
+   or    r22,r24
+   out   _SFR_IO_ADDR(GPIOR0),r22
+
+   mov   r24,r16
+
+   lds   r16,current_proc
+   ldi   r17,NEXT_PROC_UNAVAIL
+.Lsp_loop:
+   ldi   r22,PSTATE_WAIT         ; find next process with state WAIT
+   rcall get_next_proc
+   cpi   r16,NEXT_PROC_UNAVAIL   ; exit if there is none
+   breq  .Lsp_exit
+
+   cpi   r17,NEXT_PROC_UNAVAIL   ; check if it is the first run of the loop
+   brne  .Lsp_plist
+   mov   r17,r16                 ; and save proc number to r17
+   rjmp  .Lsp_plist2
+
+.Lsp_plist:
+   cp    r16,r17                 ; check if process was already tested
+   breq  .Lsp_exit               ; and exit in case
+
+.Lsp_plist2:
+   rcall proc_list_address       ; check if process is waiting for this semaphore
+   ldd   r22,Z+PSTRUCT_EVENT_OFF
+   cp    r22,r24
+   brne  .Lsp_loop               ; if not, continue loop
+
+   ldi   r22,PSTATE_RUN          ; state state of process to RUN
+   std   Z+PSTRUCT_STATE_OFF,r22
+
+.Lsp_exit:
+   pop   r22
+   out   _SFR_IO_ADDR(SREG),r22
+
+   pop   ZH
+   pop   ZL
+   pop   r22
+   pop   r17
+   pop   r16
+
+   ret
+
+
+.global get_proc_list
+get_proc_list:
+   ldi   r24,lo8(proc_list)
+   ldi   r25,hi8(proc_list)
+   ret
+
+
 .section .data
 ; currently active process
 current_proc:
+.space 1
+.Lsys_event_:
 .space 1
 ; process list
 proc_list:

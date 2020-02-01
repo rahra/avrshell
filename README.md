@@ -59,6 +59,8 @@ memory mapped instructions (`ldd`).
 
 `new <address>` ............. Create new process with start routine at _address_.
 
+`ps` ........................ List processes, with pid, current stack pointer, and state. States are defined in process.h.
+
 All these commands are implemented using `ld`, `lpm`, and `st`.
 
 ## Interrupts

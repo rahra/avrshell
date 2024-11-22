@@ -16,8 +16,11 @@ using simple commands.
 
 ## Compile
 
-To compile you need the `gcc-avr` and you need e.g. the `avrdude` to flash to
-program.
+To compile you need the `gcc-avr` and `avr-libc`. Although this project is
+dependency-free and it does not use the standard libc but the package also
+contains the header files which are needed to compile to code.
+
+Furthermore you need e.g. the `avrdude` to flash to program.
 
 Download the whole source, change into `src/` and simply run `make` and `make
 upload` assuming your Arduino board is connected. You probably open the
